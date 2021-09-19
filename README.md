@@ -1,3 +1,3 @@
 # Utils
 
-General utilities
+General utilities npm package
