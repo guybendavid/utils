@@ -18,4 +18,4 @@ const timeDisplayer = (date) => {
   return time;
 };
 
-export { classNamesGenerator, timeDisplayer };
+module.exports = { classNamesGenerator, timeDisplayer };
