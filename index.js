@@ -1,4 +1,4 @@
-const classNamesGenerator = (...items) => [...items].filter(string => string).join(' ');
+const classNamesGenerator = (...items) => [...items].filter(item => item).join(' ');
 
 const timeDisplayer = (date) => {
   let time = "";
