@@ -1,0 +1,24 @@
+{
+  "name": "utils",
+  "version": "1.0.0",
+  "author": "Guy Ben David",
+  "license": "BSD-3-Clause",
+  "description": "General utilities",
+  "keywords": [
+    "utils",
+    "utilities"
+  ],
+  "main": "index.js",
+  "bin": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/guybendavid/utils.git"
+  },
+  "bugs": {
+    "url": "https://github.com/guybendavid/utils/issues"
+  },
+  "homepage": "https://github.com/guybendavid/utils#readme"
+}
