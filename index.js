@@ -1,4 +1,4 @@
-const classNamesGenerator = (...items) => [...items].filter(item => item).join(' ');
+const classNamesGenerator = (...items) => items.filter(Boolean).join(' ');
 const timeDisplayer = (date) => new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 const getFormValidationErrors = (payload) => {
