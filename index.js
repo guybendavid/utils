@@ -1,5 +1,5 @@
 const classNamesGenerator = (...items) => items.filter(Boolean).join(' ');
-const timeDisplayer = (date) => new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const timeDisplayer = (date) => date ? new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
 
 const getFormValidationErrors = (payload) => {
   const isOnlyOneField = (fields) => getInvalidFields(fields).length === 1;
