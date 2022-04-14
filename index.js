@@ -1,25 +1,7 @@
 const classNamesGenerator = (...items) => [...items].filter(item => item).join(' ');
+const timeDisplayer = (date) => new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-// To do: maybe remove it and use the new date functions in js instead
-const timeDisplayer = (date) => {
-  let time = "";
-
-  const handleEdgeCases = (timePart) => {
-    return timePart = timePart < 10 ? `0${timePart}` : timePart;
-  };
-
-  if (date) {
-    let hours = new Date(date).getHours();
-    let minutes = new Date(date).getMinutes();
-    hours = handleEdgeCases(hours);
-    minutes = handleEdgeCases(minutes);
-    time = `${hours}:${minutes}`;
-  }
-
-  return time;
-};
-
-const getErrors = (payload) => {
+const getFormValidationErrors = (payload) => {
   const isOnlyOneField = (fields) => getInvalidFields(fields).length === 1;
   const getInvalidFields = (fields) => fields.map((field, index) => `${index > 0 ? ` ${field}` : field}`);
   const formatMessage = (message, fields) => `${message += isOnlyOneField(fields) ? ":" : "s:"} ${getInvalidFields(fields)}`;
@@ -48,4 +30,4 @@ const getErrors = (payload) => {
   return errors;
 };
 
-module.exports = { classNamesGenerator, timeDisplayer, getErrors };
+module.exports = { classNamesGenerator, timeDisplayer, getFormValidationErrors };
