@@ -2,11 +2,10 @@ const classNamesGenerator = (...items) => items.filter(Boolean).join(' ');
 const timeDisplayer = (date) => date ? new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
 
 const getFormValidationErrors = (payload) => {
-  const isOnlyOneField = (fields) => getInvalidFields(fields).length === 1;
-  const getInvalidFields = (fields) => fields.map((field, index) => `${index > 0 ? ` ${field}` : field}`);
-  const formatMessage = (message, fields) => `${message += isOnlyOneField(fields) ? ":" : "s:"} ${getInvalidFields(fields)}`;
+  const getErrorMessage = ({ text, fields }) => `${text += fields.length > 1 ? "s:" : ":"} ${getFormattedFields(fields)}`;
+  const getFormattedFields = (fields) => fields.map((field, index) => `${index > 0 ? ` "${field}"` : `"${field}"`}`);
 
-  let errors = "";
+  const errors = [];
   const emptyFields = [];
   const sideWhiteSpacesFields = [];
   const validString = /^[^\s]+(\s+[^\s]+)*$/;
@@ -18,16 +17,14 @@ const getFormValidationErrors = (payload) => {
   });
 
   if (emptyFields.length > 0) {
-    errors = formatMessage("please send a non empty value for the field", emptyFields);
+    errors.push(getErrorMessage({ text: "please send a non empty value for the field", fields: emptyFields }));
   }
 
   if (sideWhiteSpacesFields.length > 0) {
-    const message = formatMessage("please remove side white-spaces from the field", sideWhiteSpacesFields);
-    const isPreviousErrors = errors.length > 0;
-    errors += isPreviousErrors ? `<br /> ${message}` : message;
+    errors.push(getErrorMessage({ text: "please remove side white-spaces from the field", fields: sideWhiteSpacesFields }));
   }
 
-  return errors;
+  return { errors, message: errors.map((error, index) => index > 0 ? `<br /> ${error}` : error).toString() };
 };
 
 module.exports = { classNamesGenerator, timeDisplayer, getFormValidationErrors };
