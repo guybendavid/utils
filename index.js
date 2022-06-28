@@ -1,20 +1,15 @@
-const classNamesGenerator = (...items) => items.filter(Boolean).join(' ');
-const timeDisplayer = (date) => date ? new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+export const timeDisplayer = (date) => date ? new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
 
-const getFormValidationErrors = (payload) => {
-  const getErrorMessage = ({ text, fields }) => `${text += fields.length > 1 ? "s:" : ":"} ${getFormattedFields(fields)}`;
-  const getFormattedFields = (fields) => fields.map((field, index) => `${index > 0 ? ` "${field}"` : `"${field}"`}`);
-
+export const getFormValidationErrors = (payload) => {
   const errors = [];
   const emptyFields = [];
   const sideWhiteSpacesFields = [];
   const validString = /^[^\s]+(\s+[^\s]+)*$/;
 
-  Object.entries(payload).forEach(([key, value]) => {
-    if (!value || !validString.test(value)) {
-      !value ? emptyFields.push(key) : sideWhiteSpacesFields.push(key);
-    }
-  });
+  for (const [formField, formValue] of Object.entries(payload)) {
+    if (formValue && validString.test(formValue)) continue;
+    !formValue ? emptyFields.push(formField) : sideWhiteSpacesFields.push(formField);
+  }
 
   if (emptyFields.length > 0) {
     errors.push(getErrorMessage({ text: "please send a non empty value for the field", fields: emptyFields }));
@@ -27,4 +22,8 @@ const getFormValidationErrors = (payload) => {
   return { errors, message: errors.map((error, index) => index > 0 ? `<br /> ${error}` : error).toString() };
 };
 
-module.exports = { classNamesGenerator, timeDisplayer, getFormValidationErrors };
+const getErrorMessage = ({ text, fields }) =>
+  getMessagePrefix({ text, isSingleField: fields.length === 1 }) + " " + getFormattedFields(fields);
+
+const getMessagePrefix = ({ text, isSingleField }) => `${text += isSingleField ? ":" : "s:"}`;
+const getFormattedFields = (fields) => fields.map(field => `"${field}"`).join(", ");
