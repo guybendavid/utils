@@ -13,6 +13,7 @@
   "bin": "index.js",
   "types": "index.d.ts",
   "scripts": {
+    "test": "echo \"No tests yet\"",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
