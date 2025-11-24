@@ -1,6 +1,7 @@
 {
   "name": "@guybendavid/utils",
   "version": "3.0.0",
+  "type": "module",
   "author": "Guy Ben David",
   "license": "BSD-3-Clause",
   "description": "General utilities",
@@ -12,7 +13,20 @@
   "bin": "index.js",
   "types": "index.d.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "eslint": "^9.17.0",
+    "eslint-plugin-prefer-arrow": "^1.2.3",
+    "eslint-plugin-unicorn": "^56.0.1",
+    "eslint-plugin-unused-imports": "^4.1.4",
+    "husky": "^9.1.7",
+    "prettier": "^3.4.2",
+    "pretty-quick": "^4.0.0"
   },
   "repository": {
     "type": "git",
