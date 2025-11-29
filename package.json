@@ -19,7 +19,7 @@
     "format": "prettier --write .",
     "find-unimported-exports": "node find-unimported-exports.js",
     "find-junk": "knip",
-    "build": "npm run lint && npm run find-unimported-exports && npm run find-junk && npm run format",
+    "build": "npm run lint && npm run find-unimported-exports && npm run find-junk && npm run format && next build",
     "prepare": "husky"
   },
   "devDependencies": {
