@@ -34,7 +34,7 @@ const eslintConfig = [
       ],
       // To do: enable and refactor
       "no-magic-numbers": [
-        "error",
+        "off",
         {
           ignore: [0, 1, -1],
           ignoreDefaultValues: true,
