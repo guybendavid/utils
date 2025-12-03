@@ -41,7 +41,10 @@ const eslintConfig = [
           detectObjects: false
         }
       ],
+      "custom/blank-line-before-multiline-return": "error",
       "custom/no-hardcoded-strings": "off",
+      "custom/prefer-get-prefix": "error",
+      "custom/prefer-boolean-is-prefix": "error",
       "prefer-const": "error",
       "no-var": "error",
       "prefer-arrow/prefer-arrow-functions": "error",

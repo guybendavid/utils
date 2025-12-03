@@ -1,9 +1,9 @@
+import { getFormattedTime, getFormValidationErrors } from "../index.js";
 import { test } from "node:test";
 import assert from "node:assert";
-import { timeDisplayer, getFormValidationErrors } from "../index.js";
 
 test("timeDisplayer formats time correctly", () => {
-  const result = timeDisplayer(new Date("2024-01-15T14:30:00"));
+  const result = getFormattedTime(new Date("2024-01-15T14:30:00"));
   assert.match(result, /\d{2}:\d{2}/);
 });
 

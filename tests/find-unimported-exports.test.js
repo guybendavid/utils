@@ -7,7 +7,7 @@ import { join } from "path";
 const cwd = process.cwd();
 const testFixturePath = join(cwd, "tests", "test-fixture-unused-export.js");
 
-const runScript = () => {
+const getScriptResult = () => {
   try {
     const output = execSync("node find-unimported-exports.js", {
       cwd,
@@ -48,7 +48,7 @@ console.log("Testing find-unimported-exports.js\n");
 
 test("should detect unimported export", () => {
   writeFileSync(testFixturePath, "export const UNUSED_TEST_EXPORT = 1;", "utf8");
-  const { output, exitCode } = runScript();
+  const { output, exitCode } = getScriptResult();
   removeFixture();
   assert(exitCode === 1, `Expected exit code 1, got ${exitCode}`);
   assert(output.includes("UNUSED_TEST_EXPORT"), `Expected output to include "UNUSED_TEST_EXPORT", got: ${output}`);
@@ -57,7 +57,7 @@ test("should detect unimported export", () => {
 
 test("should pass when no unimported exports", () => {
   removeFixture();
-  const { output, exitCode } = runScript();
+  const { output, exitCode } = getScriptResult();
   assert(exitCode === 0, `Expected exit code 0, got ${exitCode}`);
   assert(output.includes("No unimported exports found"), `Expected success message, got: ${output}`);
 });

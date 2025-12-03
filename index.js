@@ -1,4 +1,4 @@
-export const timeDisplayer = (date) => (date ? new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "");
+export const getFormattedTime = (date) => (date ? new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "");
 
 export const getFormValidationErrors = (payload) => {
   const errors = [];

@@ -1,5 +1,4 @@
-declare type classNamesGeneratorItems = string | boolean | undefined;
-declare const classNamesGenerator: (...items: classNamesGeneratorItems[]) => string;
-declare const timeDisplayer: (date?: string | undefined) => string;
-declare const getFormValidationErrors: (payload: Record<string, unknown>) => { errors: string[]; message: string };
-export { classNamesGenerator, timeDisplayer, getFormValidationErrors };
+export declare type classNamesGeneratorItems = string | boolean | undefined;
+export declare const classNamesGenerator: (...items: classNamesGeneratorItems[]) => string;
+export declare const getFormattedTime: (date?: string | undefined) => string;
+export declare const getFormValidationErrors: (payload: Record<string, unknown>) => { errors: string[]; message: string };
