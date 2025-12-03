@@ -1,7 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@latest/schema.json",
   "entry": ["tests/**/*.test.js"],
-  "ignore": ["next-sitemap.config.js"],
+  "ignore": [],
   "ignoreDependencies": [],
   "paths": {
     "custom-eslint-rules": ["custom-eslint-rules.js"]
