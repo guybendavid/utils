@@ -2,6 +2,7 @@ import js from "@eslint/js";
 import unicorn from "eslint-plugin-unicorn";
 import unusedImports from "eslint-plugin-unused-imports";
 import preferArrow from "eslint-plugin-prefer-arrow";
+import { customRuleMap } from "./custom-eslint-rules.js";
 
 const eslintConfig = [
   js.configs.recommended,
@@ -9,7 +10,10 @@ const eslintConfig = [
     plugins: {
       "unused-imports": unusedImports,
       unicorn,
-      "prefer-arrow": preferArrow
+      "prefer-arrow": preferArrow,
+      custom: {
+        rules: customRuleMap
+      }
     },
     languageOptions: {
       ecmaVersion: 2022,
@@ -28,6 +32,7 @@ const eslintConfig = [
           }
         }
       ],
+      // To do: enable and refactor
       "no-magic-numbers": [
         "error",
         {
@@ -35,6 +40,13 @@ const eslintConfig = [
           ignoreDefaultValues: true,
           enforceConst: true,
           detectObjects: false
+        }
+      ],
+      "custom/no-hardcoded-strings": [
+        "warn",
+        {
+          minLength: 4,
+          ignorePatterns: ["^\\s*$", "^[a-z0-9-]+$", "^[A-Z0-9_]+$", "^/", "^\\.", "^https?://", "^[0-9]+$"]
         }
       ],
       "prefer-const": "error",
