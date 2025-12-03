@@ -1,0 +1,22 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "entry": ["tests/**/*.test.js"],
+  "ignore": ["next-sitemap.config.js"],
+  "ignoreDependencies": [],
+  "paths": {
+    "custom-eslint-rules": ["custom-eslint-rules.js"]
+  },
+  "rules": {
+    "files": "error",
+    "dependencies": "error",
+    "devDependencies": "error",
+    "unlisted": "error",
+    "exports": "error",
+    "nsExports": "warn",
+    "classMembers": "warn",
+    "types": "warn",
+    "nsTypes": "warn",
+    "enumMembers": "warn",
+    "duplicates": "error"
+  }
+}

@@ -14,12 +14,9 @@
   "types": "index.d.ts",
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint": "eslint . && node find-unimported-exports.js && knip",
+    "lint:eslint-fix": "eslint . --fix",
     "format": "prettier --write .",
-    "find-unimported-exports": "node find-unimported-exports.js",
-    "find-junk": "knip",
-    "build": "npm run lint && npm run find-unimported-exports && npm run find-junk && npm run format && next build",
     "prepare": "husky"
   },
   "devDependencies": {
