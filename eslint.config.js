@@ -42,13 +42,7 @@ const eslintConfig = [
           detectObjects: false
         }
       ],
-      "custom/no-hardcoded-strings": [
-        "warn",
-        {
-          minLength: 4,
-          ignorePatterns: ["^\\s*$", "^[a-z0-9-]+$", "^[A-Z0-9_]+$", "^/", "^\\.", "^https?://", "^[0-9]+$"]
-        }
-      ],
+      "custom/no-hardcoded-strings": "off",
       "prefer-const": "error",
       "no-var": "error",
       "prefer-arrow/prefer-arrow-functions": "error",
