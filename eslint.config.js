@@ -28,6 +28,15 @@ const eslintConfig = [
           }
         }
       ],
+      "no-magic-numbers": [
+        "error",
+        {
+          ignore: [0, 1, -1],
+          ignoreDefaultValues: true,
+          enforceConst: true,
+          detectObjects: false
+        }
+      ],
       "prefer-const": "error",
       "no-var": "error",
       "prefer-arrow/prefer-arrow-functions": "error",
