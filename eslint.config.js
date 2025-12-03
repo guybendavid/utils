@@ -218,9 +218,6 @@ const eslintConfig = [
         }
       ]
     }
-  },
-  {
-    ignores: ["node_modules/**"]
   }
 ];
 
