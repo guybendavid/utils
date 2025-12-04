@@ -194,9 +194,6 @@ export const customRuleMap = {
         // Skip if it's a hook (starts with "use")
         if (functionName.startsWith("use")) return;
 
-        // Skip validation, connection, and handler functions
-        if (functionName.startsWith("validate") || functionName.startsWith("connect") || functionName.startsWith("handle")) return;
-
         // Check if function has a return statement (including nested scopes)
         const getIsHasReturnStatement = (body) => {
           if (!body) return false;
@@ -205,7 +202,7 @@ export const customRuleMap = {
             if (!Array.isArray(body.body)) return false;
 
             return body.body.some((statement) => {
-              if (statement.type === "ReturnStatement") return true;
+              if (statement.type === "ReturnStatement" && statement.argument) return true;
               if (statement.type === "IfStatement") {
                 const consequentCheck = getIsHasReturnStatement(statement.consequent);
                 const alternateCheck = statement.alternate ? getIsHasReturnStatement(statement.alternate) : false;
@@ -229,8 +226,12 @@ export const customRuleMap = {
 
         const getIsReturn = () => {
           if (functionNode.type === "ArrowFunctionExpression") {
-            // Arrow functions without block return implicitly
-            return functionNode.body.type !== "BlockStatement" || getIsHasReturnStatement(functionNode.body);
+            // Only check arrow functions with explicit block and return statements
+            if (functionNode.body.type === "BlockStatement") {
+              return getIsHasReturnStatement(functionNode.body);
+            }
+            // Skip implicit returns - can't reliably determine if void without types
+            return false;
           }
 
           if (functionNode.type === "FunctionExpression" || functionNode.type === "FunctionDeclaration") {
