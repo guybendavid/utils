@@ -45,6 +45,7 @@ const eslintConfig = [
       "custom/no-hardcoded-strings": "off",
       "custom/prefer-get-prefix": "error",
       "custom/prefer-boolean-is-prefix": "error",
+      "custom/no-get-prefix-for-void": "error",
       "prefer-const": "error",
       "no-var": "error",
       "prefer-arrow/prefer-arrow-functions": "error",

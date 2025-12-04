@@ -69,7 +69,9 @@ const MessageTypeToText = {
   NO_HARDCODED_STRINGS: "Hardcoded strings are not allowed. Use constants or localization keys instead.",
   FUNCTION_MUST_START_WITH_GET_PREFIX: "Functions that return values should start with 'get' prefix.",
   BOOLEAN_VARIABLE_MUST_START_WITH_IS: "Boolean variables should start with 'is' prefix.",
-  BOOLEAN_FUNCTION_MUST_START_WITH_GET_IS: "Functions that return boolean values should start with 'getIs' prefix."
+  BOOLEAN_FUNCTION_MUST_START_WITH_GET_IS: "Functions that return boolean values should start with 'getIs' prefix.",
+  REQUIRE_OBJECT_DESTRUCTURING: "Functions with 2 or more parameters must use object destructuring.",
+  NO_GET_PREFIX_FOR_VOID_FUNCTIONS: "Void functions (functions that don't return values) should not start with 'get' prefix."
 };
 
 export const customRuleMap = {
@@ -193,6 +195,9 @@ export const customRuleMap = {
 
         // Skip if it's a hook (starts with "use")
         if (functionName.startsWith("use")) return;
+
+        // Skip async functions - they return Promises, can't determine resolved type
+        if (functionNode.async) return;
 
         // Check if function has a return statement (including nested scopes)
         const getIsHasReturnStatement = (body) => {
@@ -326,5 +331,92 @@ export const customRuleMap = {
         }
       }
     })
+  },
+  "no-get-prefix-for-void": {
+    meta: {
+      type: "suggestion",
+      docs: {
+        description: "Prevent 'get' prefix on void functions (functions that don't return values)"
+      },
+      schema: []
+    },
+    create: (context) => {
+      const checkFunctionForVoid = (functionNode, functionName, reportNode) => {
+        if (!functionName.startsWith("get")) return;
+        if (/^get[A-Z]/.test(functionName) && /^get[A-Z][a-z]*[A-Z]/.test(functionName)) return;
+
+        const getIsNonVoidReturn = (body) => {
+          if (!body) return false;
+
+          if (body.type === "BlockStatement") {
+            if (!Array.isArray(body.body)) return false;
+
+            return body.body.some((statement) => {
+              if (statement.type === "ReturnStatement") {
+                if (!statement.argument) return false;
+                if (statement.argument.type === "Identifier" && statement.argument.name === "undefined") return false;
+                return true;
+              }
+
+              if (statement.type === "IfStatement") {
+                const consequentCheck = getIsNonVoidReturn(statement.consequent);
+                const alternateCheck = statement.alternate ? getIsNonVoidReturn(statement.alternate) : false;
+                return consequentCheck || alternateCheck;
+              }
+
+              if (statement.type === "TryStatement") {
+                const blockCheck = getIsNonVoidReturn(statement.block);
+                const handlerCheck = statement.handler ? getIsNonVoidReturn(statement.handler.body) : false;
+                const finalizerCheck = statement.finalizer ? getIsNonVoidReturn(statement.finalizer) : false;
+                return blockCheck || handlerCheck || finalizerCheck;
+              }
+
+              if (statement.type === "BlockStatement") {
+                return getIsNonVoidReturn(statement);
+              }
+
+              return false;
+            });
+          }
+        };
+
+        const getIsVoidFunction = () => {
+          if (functionNode.type === "ArrowFunctionExpression") {
+            if (functionNode.body.type !== "BlockStatement") return false;
+            return !getIsNonVoidReturn(functionNode.body);
+          }
+
+          if (functionNode.type === "FunctionExpression" || functionNode.type === "FunctionDeclaration") {
+            return !getIsNonVoidReturn(functionNode.body);
+          }
+
+          return false;
+        };
+
+        if (getIsVoidFunction()) {
+          context.report({
+            node: reportNode,
+            message: MessageTypeToText.NO_GET_PREFIX_FOR_VOID_FUNCTIONS
+          });
+        }
+      };
+
+      return {
+        VariableDeclarator: (node) => {
+          if (!node.id || node.id.type !== "Identifier") return;
+          const functionName = node.id.name;
+
+          if (node.init?.type === "ArrowFunctionExpression" || node.init?.type === "FunctionExpression") {
+            checkFunctionForVoid(node.init, functionName, node.id);
+          }
+        },
+
+        FunctionDeclaration: (node) => {
+          if (!node.id || node.id.type !== "Identifier") return;
+          const functionName = node.id.name;
+          checkFunctionForVoid(node, functionName, node.id);
+        }
+      };
+    }
   }
 };
