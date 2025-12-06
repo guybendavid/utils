@@ -270,6 +270,15 @@ export const customRuleMap = {
           if (!node.id || node.id.type !== "Identifier") return;
           const functionName = node.id.name;
           checkFunctionForReturn(node, functionName, node.id);
+        },
+        // Handle object properties like: { getIsCssStyle: (init) => { } }
+        Property: (node) => {
+          if (!node.key || node.key.type !== "Identifier" || !node.value) return;
+          const functionName = node.key.name;
+          if (functionName === "create" || functionName === "fix") return; // Skip ESLint API properties
+          if (node.value.type === "ArrowFunctionExpression" || node.value.type === "FunctionExpression") {
+            checkFunctionForReturn(node.value, functionName, node.key);
+          }
         }
       };
     }
@@ -415,6 +424,16 @@ export const customRuleMap = {
           if (!node.id || node.id.type !== "Identifier") return;
           const functionName = node.id.name;
           checkFunctionForVoid(node, functionName, node.id);
+        },
+        // Handle object properties like: { getName: (param) => { } }
+        Property: (node) => {
+          if (!node.key || node.key.type !== "Identifier" || !node.value) return;
+          const functionName = node.key.name;
+          if (functionName === "create" || functionName === "fix") return; // Skip ESLint API properties
+          if (functionName === "create" || functionName === "fix") return; // Skip ESLint API properties
+          if (node.value.type === "ArrowFunctionExpression" || node.value.type === "FunctionExpression") {
+            checkFunctionForVoid(node.value, functionName, node.key);
+          }
         }
       };
     }

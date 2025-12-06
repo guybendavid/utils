@@ -4,6 +4,9 @@
   "type": "module",
   "author": "Guy Ben David",
   "license": "BSD-3-Clause",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "description": "General utilities",
   "keywords": [
     "utils",
