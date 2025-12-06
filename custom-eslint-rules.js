@@ -1,7 +1,7 @@
 const getIsMultiLine = (node) => node.loc.end.line > node.loc.start.line;
 /**
  * Configure which schema libraries to skip in 'get' prefix rules
- * To do: Move to shared config package when creating npm package
+ * Currently not used in this project
  */
 const getSchemaDetector = (options = {}) => {
   const schemaLibraries = options.schemaLibraries || [];
@@ -380,7 +380,7 @@ export const customRuleMap = {
           // Skip ESLint API properties
           if (functionName === "create" || functionName === "fix") return;
 
-          // Skip schema/config object properties (like Mongoose schema methods)
+          // Skip schema/config object properties
           if (getIsSchemaOrConfigProperty(node)) return;
 
           if (node.value.type === "ArrowFunctionExpression" || node.value.type === "FunctionExpression") {
@@ -491,7 +491,7 @@ export const customRuleMap = {
           // Skip ESLint API properties
           if (functionName === "create" || functionName === "fix") return;
 
-          // Skip schema/config object properties (like Mongoose schema methods)
+          // Skip schema/config object properties
           if (getIsSchemaOrConfigProperty(node)) return;
 
           if (node.value.type === "ArrowFunctionExpression" || node.value.type === "FunctionExpression") {
