@@ -114,6 +114,111 @@ const getIsBooleanFunction = (functionNode) => {
   // For functions with explicit return statements
   return getCheckReturnStatements(functionNode.body);
 };
+// Helper to check if a value should be ignored based on length and patterns
+const getIsShouldIgnore = (value, minLength, ignorePatterns) => {
+  if (typeof value !== "string") return true;
+  if (value.length < minLength) return true;
+  if (value.trim().length === 0) return true;
+  return ignorePatterns.some((pattern) => new RegExp(pattern).test(value));
+};
+
+// Helper to check if a function body has a return statement with a value
+const getIsHasReturnStatement = (body) => {
+  if (!body) return false;
+
+  if (body.type === "BlockStatement") {
+    if (!Array.isArray(body.body)) return false;
+
+    return body.body.some((statement) => {
+      if (statement.type === "ReturnStatement" && statement.argument) return true;
+      if (statement.type === "IfStatement") {
+        const consequentCheck = getIsHasReturnStatement(statement.consequent);
+        const alternateCheck = statement.alternate ? getIsHasReturnStatement(statement.alternate) : false;
+        return consequentCheck || alternateCheck;
+      }
+      if (statement.type === "TryStatement") {
+        const blockCheck = getIsHasReturnStatement(statement.block);
+        const handlerCheck = statement.handler ? getIsHasReturnStatement(statement.handler.body) : false;
+        const finalizerCheck = statement.finalizer ? getIsHasReturnStatement(statement.finalizer) : false;
+        return blockCheck || handlerCheck || finalizerCheck;
+      }
+      if (statement.type === "BlockStatement") {
+        return getIsHasReturnStatement(statement);
+      }
+      return false;
+    });
+  }
+
+  return false;
+};
+
+// Helper to check if a function node returns a value
+const getIsReturn = (functionNode) => {
+  if (functionNode.type === "ArrowFunctionExpression") {
+    // Only check arrow functions with explicit block and return statements
+    if (functionNode.body.type === "BlockStatement") {
+      return getIsHasReturnStatement(functionNode.body);
+    }
+    // Implicit return (no block)
+    return true;
+  }
+
+  if (functionNode.type === "FunctionExpression" || functionNode.type === "FunctionDeclaration") {
+    return getIsHasReturnStatement(functionNode.body);
+  }
+
+  return false;
+};
+
+// Helper to check if a function body has non-void returns
+const getIsNonVoidReturn = (body) => {
+  if (!body) return false;
+
+  if (body.type === "BlockStatement") {
+    if (!Array.isArray(body.body)) return false;
+
+    return body.body.some((statement) => {
+      if (statement.type === "ReturnStatement") {
+        if (!statement.argument) return false;
+        if (statement.argument.type === "Identifier" && statement.argument.name === "undefined") return false;
+        return true;
+      }
+
+      if (statement.type === "IfStatement") {
+        const consequentCheck = getIsNonVoidReturn(statement.consequent);
+        const alternateCheck = statement.alternate ? getIsNonVoidReturn(statement.alternate) : false;
+        return consequentCheck || alternateCheck;
+      }
+
+      if (statement.type === "TryStatement") {
+        const blockCheck = getIsNonVoidReturn(statement.block);
+        const handlerCheck = statement.handler ? getIsNonVoidReturn(statement.handler.body) : false;
+        const finalizerCheck = statement.finalizer ? getIsNonVoidReturn(statement.finalizer) : false;
+        return blockCheck || handlerCheck || finalizerCheck;
+      }
+
+      if (statement.type === "BlockStatement") {
+        return getIsNonVoidReturn(statement);
+      }
+
+      return false;
+    });
+  }
+};
+
+// Helper to check if a function is void (doesn't return a value)
+const getIsVoidFunction = (functionNode) => {
+  if (functionNode.type === "ArrowFunctionExpression") {
+    if (functionNode.body.type !== "BlockStatement") return false;
+    return !getIsNonVoidReturn(functionNode.body);
+  }
+
+  if (functionNode.type === "FunctionExpression" || functionNode.type === "FunctionDeclaration") {
+    return !getIsNonVoidReturn(functionNode.body);
+  }
+
+  return false;
+};
 
 const MessageTypeToText = {
   BLANK_LINE_BEFORE_MULTILINE_RETURN: "Expected blank line before multi-line return statement.",
@@ -192,18 +297,9 @@ export const customRuleMap = {
       const minLength = options.minLength || DEFAULT_MIN_LENGTH;
       const ignorePatterns = options.ignorePatterns || [];
 
-      const getIsShouldIgnore = (value) => {
-        if (typeof value !== "string") return true;
-        if (value.length < minLength) return true;
-
-        if (value.trim().length === 0) return true;
-
-        return ignorePatterns.some((pattern) => new RegExp(pattern).test(value));
-      };
-
       return {
         Literal: (node) => {
-          if (getIsShouldIgnore(node.value)) return;
+          if (getIsShouldIgnore(node.value, minLength, ignorePatterns)) return;
 
           const { parent } = node;
           if (parent.type === "Property" && parent.key === node) return;
@@ -218,7 +314,7 @@ export const customRuleMap = {
           const isExpressions = node.expressions.length > 0;
           const value = node.quasis.map((q) => q.value.raw).join("");
 
-          if (getIsShouldIgnore(value) && !isExpressions) return;
+          if (getIsShouldIgnore(value, minLength, ignorePatterns) && !isExpressions) return;
 
           context.report({
             node,
@@ -251,53 +347,8 @@ export const customRuleMap = {
         if (functionNode.async) return;
 
         // Check if function has a return statement (including nested scopes)
-        const getIsHasReturnStatement = (body) => {
-          if (!body) return false;
 
-          if (body.type === "BlockStatement") {
-            if (!Array.isArray(body.body)) return false;
-
-            return body.body.some((statement) => {
-              if (statement.type === "ReturnStatement" && statement.argument) return true;
-              if (statement.type === "IfStatement") {
-                const consequentCheck = getIsHasReturnStatement(statement.consequent);
-                const alternateCheck = statement.alternate ? getIsHasReturnStatement(statement.alternate) : false;
-                return consequentCheck || alternateCheck;
-              }
-              if (statement.type === "TryStatement") {
-                const blockCheck = getIsHasReturnStatement(statement.block);
-                const handlerCheck = statement.handler ? getIsHasReturnStatement(statement.handler.body) : false;
-                const finalizerCheck = statement.finalizer ? getIsHasReturnStatement(statement.finalizer) : false;
-                return blockCheck || handlerCheck || finalizerCheck;
-              }
-              if (statement.type === "BlockStatement") {
-                return getIsHasReturnStatement(statement);
-              }
-              return false;
-            });
-          }
-
-          return false;
-        };
-
-        const getIsReturn = () => {
-          if (functionNode.type === "ArrowFunctionExpression") {
-            // Only check arrow functions with explicit block and return statements
-            if (functionNode.body.type === "BlockStatement") {
-              return getIsHasReturnStatement(functionNode.body);
-            }
-            // Skip implicit returns - can't reliably determine if void without types
-            return false;
-          }
-
-          if (functionNode.type === "FunctionExpression" || functionNode.type === "FunctionDeclaration") {
-            return getIsHasReturnStatement(functionNode.body);
-          }
-
-          return false;
-        };
-
-        if (getIsReturn()) {
+        if (getIsReturn(functionNode)) {
           context.report({
             node: reportNode,
             message: MessageTypeToText.FUNCTION_MUST_START_WITH_GET_PREFIX
@@ -410,55 +461,7 @@ export const customRuleMap = {
         if (!functionName.startsWith("get")) return;
         if (/^get[A-Z]/.test(functionName) && /^get[A-Z][a-z]*[A-Z]/.test(functionName)) return;
 
-        const getIsNonVoidReturn = (body) => {
-          if (!body) return false;
-
-          if (body.type === "BlockStatement") {
-            if (!Array.isArray(body.body)) return false;
-
-            return body.body.some((statement) => {
-              if (statement.type === "ReturnStatement") {
-                if (!statement.argument) return false;
-                if (statement.argument.type === "Identifier" && statement.argument.name === "undefined") return false;
-                return true;
-              }
-
-              if (statement.type === "IfStatement") {
-                const consequentCheck = getIsNonVoidReturn(statement.consequent);
-                const alternateCheck = statement.alternate ? getIsNonVoidReturn(statement.alternate) : false;
-                return consequentCheck || alternateCheck;
-              }
-
-              if (statement.type === "TryStatement") {
-                const blockCheck = getIsNonVoidReturn(statement.block);
-                const handlerCheck = statement.handler ? getIsNonVoidReturn(statement.handler.body) : false;
-                const finalizerCheck = statement.finalizer ? getIsNonVoidReturn(statement.finalizer) : false;
-                return blockCheck || handlerCheck || finalizerCheck;
-              }
-
-              if (statement.type === "BlockStatement") {
-                return getIsNonVoidReturn(statement);
-              }
-
-              return false;
-            });
-          }
-        };
-
-        const getIsVoidFunction = () => {
-          if (functionNode.type === "ArrowFunctionExpression") {
-            if (functionNode.body.type !== "BlockStatement") return false;
-            return !getIsNonVoidReturn(functionNode.body);
-          }
-
-          if (functionNode.type === "FunctionExpression" || functionNode.type === "FunctionDeclaration") {
-            return !getIsNonVoidReturn(functionNode.body);
-          }
-
-          return false;
-        };
-
-        if (getIsVoidFunction()) {
+        if (getIsVoidFunction(functionNode)) {
           context.report({
             node: reportNode,
             message: MessageTypeToText.NO_GET_PREFIX_FOR_VOID_FUNCTIONS
