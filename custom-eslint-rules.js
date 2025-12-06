@@ -1,4 +1,55 @@
 const getIsMultiLine = (node) => node.loc.end.line > node.loc.start.line;
+/**
+ * Configure which schema libraries to skip in 'get' prefix rules
+ * To do: Move to shared config package when creating npm package
+ */
+const getSchemaDetector = (options = {}) => {
+  const schemaLibraries = options.schemaLibraries || [];
+  const schemaMethods = options.schemaMethods || [];
+
+  if (schemaLibraries.length === 0 && schemaMethods.length === 0) {
+    return () => false;
+  }
+
+  return (node) => {
+    if (!node.parent || node.parent.type !== "ObjectExpression") return false;
+
+    const getIsSchemaObject = (current) => {
+      if (!current) return false;
+
+      if (current.parent && (current.parent.type === "CallExpression" || current.parent.type === "NewExpression")) {
+        const { callee } = current.parent;
+
+        if (callee) {
+          if (callee.type === "MemberExpression") {
+            const objectName = callee.object?.name;
+            const propertyName = callee.property?.name;
+
+            if (schemaLibraries.includes(objectName) || schemaMethods.includes(propertyName)) {
+              return true;
+            }
+          }
+
+          if (callee.type === "Identifier" && schemaMethods.includes(callee.name)) {
+            return true;
+          }
+        }
+      }
+
+      return getIsSchemaObject(current.parent);
+    };
+
+    return getIsSchemaObject(node.parent);
+  };
+};
+
+// No schema libraries in this project
+const SCHEMA_CONFIG = {
+  schemaLibraries: [],
+  schemaMethods: []
+};
+
+const getIsSchemaOrConfigProperty = getSchemaDetector(SCHEMA_CONFIG);
 
 const getIsBlankLineBefore = (context, node) => {
   const sourceCode = context.getSourceCode();
@@ -275,7 +326,12 @@ export const customRuleMap = {
         Property: (node) => {
           if (!node.key || node.key.type !== "Identifier" || !node.value) return;
           const functionName = node.key.name;
-          if (functionName === "create" || functionName === "fix") return; // Skip ESLint API properties
+          // Skip ESLint API properties
+          if (functionName === "create" || functionName === "fix") return;
+
+          // Skip schema/config object properties (like Mongoose schema methods)
+          if (getIsSchemaOrConfigProperty(node)) return;
+
           if (node.value.type === "ArrowFunctionExpression" || node.value.type === "FunctionExpression") {
             checkFunctionForReturn(node.value, functionName, node.key);
           }
@@ -429,8 +485,12 @@ export const customRuleMap = {
         Property: (node) => {
           if (!node.key || node.key.type !== "Identifier" || !node.value) return;
           const functionName = node.key.name;
-          if (functionName === "create" || functionName === "fix") return; // Skip ESLint API properties
-          if (functionName === "create" || functionName === "fix") return; // Skip ESLint API properties
+          // Skip ESLint API properties
+          if (functionName === "create" || functionName === "fix") return;
+
+          // Skip schema/config object properties (like Mongoose schema methods)
+          if (getIsSchemaOrConfigProperty(node)) return;
+
           if (node.value.type === "ArrowFunctionExpression" || node.value.type === "FunctionExpression") {
             checkFunctionForVoid(node.value, functionName, node.key);
           }
