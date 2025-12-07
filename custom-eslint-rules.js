@@ -1,7 +1,10 @@
 const getIsMultiLine = (node) => node.loc.end.line > node.loc.start.line;
 /**
  * Configure which schema libraries to skip in 'get' prefix rules
- * Currently not used in this project
+ * @param {Object} options - Configuration options
+ * @param {Array<string>} options.schemaLibraries - Library names (e.g., ['mongoose'])
+ * @param {Array<string>} options.schemaMethods - Method names (e.g., ['Schema'])
+ * @returns {Function} Schema detection function
  */
 const getSchemaDetector = (options = {}) => {
   const schemaLibraries = options.schemaLibraries || [];
@@ -43,7 +46,7 @@ const getSchemaDetector = (options = {}) => {
   };
 };
 
-// No schema libraries in this project
+// Configuration for this project - To do: Move to shared config package
 const SCHEMA_CONFIG = {
   schemaLibraries: [],
   schemaMethods: []
@@ -51,12 +54,21 @@ const SCHEMA_CONFIG = {
 
 const getIsSchemaOrConfigProperty = getSchemaDetector(SCHEMA_CONFIG);
 
-const getIsBlankLineBefore = (context, node) => {
-  const sourceCode = context.getSourceCode();
+// Helper to check if there's a blank line before a node
+const getIsBlankLineBefore = (sourceCode, node) => {
   const tokenBefore = sourceCode.getTokenBefore(node);
   if (!tokenBefore) return true;
 
-  return node.loc.start.line - tokenBefore.loc.end.line > 1;
+  const linesBetween = node.loc.start.line - tokenBefore.loc.end.line;
+
+  return linesBetween > 1;
+};
+
+const getIsBlankLineAfter = (sourceCode, node) => {
+  const tokenAfter = sourceCode.getTokenAfter(node);
+  if (!tokenAfter) return true;
+
+  return tokenAfter.loc.start.line - node.loc.end.line > 1;
 };
 
 const getIsBoolean = (init) => {
@@ -85,17 +97,20 @@ const getCheckReturnStatements = (body) => {
       if (statement.type === "ReturnStatement" && statement.argument) {
         return getIsBoolean(statement.argument);
       }
+
       if (statement.type === "IfStatement") {
         const consequentCheck = getCheckReturnStatements(statement.consequent);
         const alternateCheck = statement.alternate ? getCheckReturnStatements(statement.alternate) : false;
         return consequentCheck || alternateCheck;
       }
+
       if (statement.type === "TryStatement") {
         const blockCheck = getCheckReturnStatements(statement.block);
         const handlerCheck = statement.handler ? getCheckReturnStatements(statement.handler.body) : false;
         const finalizerCheck = statement.finalizer ? getCheckReturnStatements(statement.finalizer) : false;
         return blockCheck || handlerCheck || finalizerCheck;
       }
+
       return false;
     });
   }
@@ -114,136 +129,178 @@ const getIsBooleanFunction = (functionNode) => {
   // For functions with explicit return statements
   return getCheckReturnStatements(functionNode.body);
 };
-// Helper to check if a value should be ignored based on length and patterns
-const getIsShouldIgnore = (value, minLength, ignorePatterns) => {
-  if (typeof value !== "string") return true;
-  if (value.length < minLength) return true;
-  if (value.trim().length === 0) return true;
-  return ignorePatterns.some((pattern) => new RegExp(pattern).test(value));
-};
+// Check if this is a CSS style (css template literal or function returning css)
+const getIsCssStyle = (init) => {
+  if (!init) return false;
 
-// Helper to check if a function body has a return statement with a value
-const getIsHasReturnStatement = (body) => {
-  if (!body) return false;
-
-  if (body.type === "BlockStatement") {
-    if (!Array.isArray(body.body)) return false;
-
-    return body.body.some((statement) => {
-      if (statement.type === "ReturnStatement" && statement.argument) return true;
-      if (statement.type === "IfStatement") {
-        const consequentCheck = getIsHasReturnStatement(statement.consequent);
-        const alternateCheck = statement.alternate ? getIsHasReturnStatement(statement.alternate) : false;
-        return consequentCheck || alternateCheck;
-      }
-      if (statement.type === "TryStatement") {
-        const blockCheck = getIsHasReturnStatement(statement.block);
-        const handlerCheck = statement.handler ? getIsHasReturnStatement(statement.handler.body) : false;
-        const finalizerCheck = statement.finalizer ? getIsHasReturnStatement(statement.finalizer) : false;
-        return blockCheck || handlerCheck || finalizerCheck;
-      }
-      if (statement.type === "BlockStatement") {
-        return getIsHasReturnStatement(statement);
-      }
-      return false;
-    });
-  }
-
-  return false;
-};
-
-// Helper to check if a function node returns a value
-const getIsReturn = (functionNode) => {
-  if (functionNode.type === "ArrowFunctionExpression") {
-    // Only check arrow functions with explicit block and return statements
-    if (functionNode.body.type === "BlockStatement") {
-      return getIsHasReturnStatement(functionNode.body);
-    }
-    // Implicit return (no block)
+  // Direct css template literal
+  if (init.type === "TaggedTemplateExpression" && init.tag?.name === "css") {
     return true;
   }
 
-  if (functionNode.type === "FunctionExpression" || functionNode.type === "FunctionDeclaration") {
-    return getIsHasReturnStatement(functionNode.body);
+  // Arrow function returning css
+  if (init.type === "ArrowFunctionExpression") {
+    const body = init.body.type === "BlockStatement" ? init.body.body.find((n) => n.type === "ReturnStatement")?.argument : init.body;
+
+    return (
+      body &&
+      ((body.type === "TaggedTemplateExpression" && body.tag?.name === "css") ||
+        (body.type === "CallExpression" && body.callee?.name === "css"))
+    );
   }
 
   return false;
 };
 
-// Helper to check if a function body has non-void returns
-const getIsNonVoidReturn = (body) => {
-  if (!body) return false;
+const getClassNameValue = (nodeOrAttr) => {
+  // Handle JSXAttribute node
+  if (nodeOrAttr.type === "JSXAttribute") {
+    if (!nodeOrAttr.value) return null;
+    const attrValue = nodeOrAttr.value;
 
-  if (body.type === "BlockStatement") {
-    if (!Array.isArray(body.body)) return false;
+    // Handle different className value types
+    if (attrValue.type === "Literal") {
+      return null; // Skip string literals, we're looking for CSS-in-JS
+    }
 
-    return body.body.some((statement) => {
-      if (statement.type === "ReturnStatement") {
-        if (!statement.argument) return false;
-        if (statement.argument.type === "Identifier" && statement.argument.name === "undefined") return false;
-        return true;
+    if (attrValue.type === "JSXExpressionContainer") {
+      const { expression } = attrValue;
+
+      if (expression.type === "Identifier") {
+        return expression.name;
       }
 
-      if (statement.type === "IfStatement") {
-        const consequentCheck = getIsNonVoidReturn(statement.consequent);
-        const alternateCheck = statement.alternate ? getIsNonVoidReturn(statement.alternate) : false;
-        return consequentCheck || alternateCheck;
+      if (expression.type === "CallExpression" && expression.callee?.type === "Identifier") {
+        return expression.callee.name;
       }
+    }
 
-      if (statement.type === "TryStatement") {
-        const blockCheck = getIsNonVoidReturn(statement.block);
-        const handlerCheck = statement.handler ? getIsNonVoidReturn(statement.handler.body) : false;
-        const finalizerCheck = statement.finalizer ? getIsNonVoidReturn(statement.finalizer) : false;
-        return blockCheck || handlerCheck || finalizerCheck;
-      }
-
-      if (statement.type === "BlockStatement") {
-        return getIsNonVoidReturn(statement);
-      }
-
-      return false;
-    });
+    return null;
   }
+
+  // Handle the attribute object directly (original behavior)
+  const attrValue = nodeOrAttr.value;
+
+  // Handle different className value types
+  if (attrValue.type === "Literal") {
+    return null; // Skip string literals, we're looking for CSS-in-JS
+  }
+
+  if (attrValue.type === "JSXExpressionContainer") {
+    const { expression } = attrValue;
+
+    if (expression.type === "Identifier") {
+      return expression.name;
+    }
+
+    if (expression.type === "CallExpression" && expression.callee?.type === "Identifier") {
+      return expression.callee.name;
+    }
+  }
+
+  return null;
 };
 
-// Helper to check if a function is void (doesn't return a value)
-const getIsVoidFunction = (functionNode) => {
-  if (functionNode.type === "ArrowFunctionExpression") {
-    if (functionNode.body.type !== "BlockStatement") return false;
-    return !getIsNonVoidReturn(functionNode.body);
-  }
+const getIsOutermostElement = (node) => {
+  const getIsParentValid = (currentNode) => {
+    if (!currentNode.parent) return false;
 
-  if (functionNode.type === "FunctionExpression" || functionNode.type === "FunctionDeclaration") {
-    return !getIsNonVoidReturn(functionNode.body);
+    const { parent } = currentNode;
+
+    if (parent.type === "JSXElement" || parent.type === "JSXFragment") {
+      return false; // Not the outermost element
+    }
+
+    if (parent.type === "ReturnStatement") {
+      return true; // This is the outermost element in a return
+    }
+
+    return getIsParentValid(parent);
+  };
+
+  return getIsParentValid(node);
+};
+
+// Helper to check if a return statement spans multiple lines
+const getIsMultiLineReturn = (node) => {
+  const startLine = node.loc.start.line;
+  const endLine = node.loc.end.line;
+  return endLine > startLine;
+};
+
+// Helper to check if a statement is a setter call (like setIsLoading, setIsAdmin, etc.)
+const getIsSetterCall = (node) => {
+  if (node.type !== "ExpressionStatement") return false;
+  const { expression } = node;
+  if (expression.type !== "CallExpression") return false;
+  const { callee } = expression;
+  return callee.type === "Identifier" && callee.name.startsWith("set") && callee.name.length > 3;
+};
+
+// Helper to check if a statement is a function call that should have spacing (like setTimeout, setInterval, etc.)
+const getIsSpacingRequiredFunctionCall = (node) => {
+  if (node.type !== "ExpressionStatement") return false;
+  const { expression } = node;
+  if (expression.type !== "CallExpression") return false;
+  const { callee } = expression;
+
+  // Only require spacing for specific function calls, not setters
+  if (callee.type === "Identifier") {
+    const funcName = callee.name;
+    // Apply to timing functions and other utility functions first
+    const spacingRequiredFunctions = ["setTimeout", "setInterval", "console", "alert"];
+
+    if (spacingRequiredFunctions.includes(funcName)) {
+      return true;
+    }
+
+    // Don't apply to setter functions (but only after checking specific allowed functions)
+    if (funcName.startsWith("set") && funcName.length > 3) {
+      return false;
+    }
   }
 
   return false;
 };
 
 const MessageTypeToText = {
+  FUNCTION_WITHOUT_PARAMETERS: "CSS styling functions without parameters should be converted to regular css variables.",
+  FUNCTION_MUST_END_WITH_STYLE: "CSS styling functions must end with 'Style'.",
+  LETTER_AFTER_GET_MUST_BE_CAPITALIZED: "Letter after 'get' must be capitalized.",
+  TEMPLATE_LITERAL_MUST_END_WITH_STYLE: "CSS template literal variables must end with 'Style'.",
+  TEMPLATE_LITERAL_CANNOT_START_WITH_GET: "CSS template literal variables cannot start with 'get'.",
+  TEMPLATE_LITERAL_CANNOT_START_WITH_CAPITAL_LETTER: "CSS template literal variables cannot start with capital letter.",
+  CONTAINER_STYLE_NAMING: "Parent/container elements should use 'containerStyle' for objects or 'getContainerStyle' for functions.",
+  CONTAINER_STYLE_RESERVED: "The names 'containerStyle' and 'getContainerStyle' are reserved for parent/container elements only.",
   BLANK_LINE_BEFORE_MULTILINE_RETURN: "Expected blank line before multi-line return statement.",
-  NO_HARDCODED_STRINGS: "Hardcoded strings are not allowed. Use constants or localization keys instead.",
+  BLANK_LINE_BEFORE_FUNCTION_CALL: "Expected blank line before function call following setter statements.",
+  NO_BLOCK_STATEMENTS_IN_EVENT_HANDLERS: "Block statements are not allowed in JSX event handler arrow functions.",
+  PREFER_DIRECT_FUNCTION_REFERENCE: "Use direct function reference instead of arrow function when no arguments are passed.",
+  NO_INLINE_STYLES: "Inline 'style' prop is forbidden. Use Emotion CSS (@emotion/css) instead.",
   FUNCTION_MUST_START_WITH_GET_PREFIX: "Functions that return values should start with 'get' prefix.",
-  BOOLEAN_VARIABLE_MUST_START_WITH_IS: "Boolean variables should start with 'is' prefix.",
-  BOOLEAN_FUNCTION_MUST_START_WITH_GET_IS: "Functions that return boolean values should start with 'getIs' prefix.",
+  NO_INLINE_EXPORTS: "Use export keyword before the variable/function declaration instead of inline exports.",
   REQUIRE_OBJECT_DESTRUCTURING: "Functions with 2 or more parameters must use object destructuring.",
-  NO_GET_PREFIX_FOR_VOID_FUNCTIONS: "Void functions (functions that don't return values) should not start with 'get' prefix."
+  NO_GET_PREFIX_FOR_VOID_FUNCTIONS: "Void functions (functions that don't return values) should not start with 'get' prefix.",
+  NO_HARDCODED_STRINGS: "Hardcoded strings are not allowed. Use constants or localization keys instead.",
+  BOOLEAN_VARIABLE_MUST_START_WITH_IS: "Boolean variables should start with 'is' prefix.",
+  BOOLEAN_FUNCTION_MUST_START_WITH_GET_IS: "Functions that return boolean values should start with 'getIs' prefix."
 };
 
 export const customRuleMap = {
-  "blank-line-before-multiline-return": {
+  "padding-around-multiline-statements": {
     meta: {
       type: "layout",
       fixable: "whitespace",
       docs: {
-        description: "Enforce blank line before multi-line return statements"
+        description: "Enforce blank lines around multi-line statements"
       },
       schema: []
     },
-    create: (context) => ({
-      ReturnStatement: (node) => {
+    create: (context) => {
+      const sourceCode = context.getSourceCode();
+
+      const checkStatement = (node) => {
         if (!getIsMultiLine(node)) return;
-        if (getIsBlankLineBefore(context, node)) return;
 
         const { parent } = node;
         if (!parent || parent.type !== "BlockStatement") return;
@@ -251,78 +308,762 @@ export const customRuleMap = {
         const statements = parent.body;
         const currentIndex = statements.indexOf(node);
 
-        if (currentIndex === 0) return;
+        // Check blank line before (if not first statement)
+        if (currentIndex > 0) {
+          const prevStatement = statements[currentIndex - 1];
 
-        const previousStatement = statements[currentIndex - 1];
-        const noBlankLineAfter = ["ReturnStatement", "ThrowStatement", "BreakStatement", "ContinueStatement"];
+          const prevEndsFlow = ["ReturnStatement", "ThrowStatement", "BreakStatement", "ContinueStatement"].includes(
+            prevStatement.type
+          );
 
-        if (noBlankLineAfter.includes(previousStatement.type)) return;
+          if (!prevEndsFlow && !getIsBlankLineBefore(sourceCode, node)) {
+            context.report({
+              node,
+              message: "Expected blank line before multi-line statement",
+              fix: (fixer) => fixer.insertTextBefore(node, "\n")
+            });
+          }
+        }
 
-        context.report({
-          node,
-          message: MessageTypeToText.BLANK_LINE_BEFORE_MULTILINE_RETURN,
-          fix: (fixer) => fixer.insertTextBefore(node, "\n")
-        });
+        // Check blank line after (if not last statement)
+        const isLastStatement = currentIndex >= statements.length - 1;
+
+        if (!isLastStatement && !getIsBlankLineAfter(sourceCode, node)) {
+          const { loc } = node;
+
+          context.report({
+            node,
+            loc: loc.end,
+            message: "Expected blank line after multi-line statement",
+            fix: (fixer) => fixer.insertTextAfter(node, "\n")
+          });
+        }
+      };
+
+      return {
+        ExpressionStatement: checkStatement,
+        VariableDeclaration: checkStatement,
+        ReturnStatement: checkStatement,
+        IfStatement: checkStatement,
+        TryStatement: checkStatement,
+        ThrowStatement: checkStatement
+      };
+    }
+  },
+
+  // To do: add fixers (ensure fixing the usages including imports if there are (shared styles))
+  "css-style-naming": {
+    meta: {
+      type: "problem",
+      fixable: "code",
+      docs: {
+        description: "Enforce naming convention for css template literals and functions"
+      },
+      schema: []
+    },
+    create: (context) => ({
+      VariableDeclarator: (node) => {
+        const { id, init } = node;
+        const { name: variableName } = id;
+
+        if (init?.type === "ArrowFunctionExpression") {
+          const { params } = init;
+
+          const body =
+            init.body.type === "BlockStatement" ? init.body.body.find((n) => n.type === "ReturnStatement")?.argument : init.body;
+
+          if (!body || (body.type !== "TaggedTemplateExpression" && body.type !== "CallExpression")) return;
+
+          if (
+            (body.type === "TaggedTemplateExpression" && body.tag.name !== "css") ||
+            (body.type === "CallExpression" && body.callee.name !== "css")
+          )
+            return;
+
+          if (params.length === 0) {
+            // const newName = variableName.replace(/^get/, "").replace(/Style$/, "") + "Style";
+
+            context.report({
+              node: id,
+              message: `${variableName}: ${MessageTypeToText.FUNCTION_WITHOUT_PARAMETERS}`
+              // fix: (fixer) => {
+              //   const [quasi] = body.quasi.quasis;
+              //   return [fixer.replaceText(init, `css\`${quasi.value.raw}\``), fixer.replaceText(id, newName)];
+              // }
+            });
+
+            return;
+          }
+
+          // Check for Style suffix
+          if (!variableName.endsWith("Style")) {
+            context.report({
+              node: id,
+              message: `${variableName}: ${MessageTypeToText.FUNCTION_MUST_END_WITH_STYLE}`
+            });
+
+            return;
+          }
+
+          // Check for proper capitalization after 'get' if it starts with 'get'
+          if (variableName.startsWith("get") && !variableName.match(/^get[A-Z]/)) {
+            context.report({
+              node: id,
+              message: `${variableName}: ${MessageTypeToText.LETTER_AFTER_GET_MUST_BE_CAPITALIZED}`
+            });
+          }
+
+          return;
+        }
+
+        if (init?.type === "TaggedTemplateExpression" && init.tag.name === "css") {
+          const isStartsWithCapital = variableName[0] === variableName[0].toUpperCase();
+          const isInvalidName = !variableName.endsWith("Style") || variableName.startsWith("get") || isStartsWithCapital;
+
+          if (isInvalidName) {
+            // const newName = variableName.replace(/^get/, "").replace(/Style$/, "") + "Style";
+
+            context.report({
+              node: id,
+              message: !variableName.endsWith("Style")
+                ? `${variableName}: ${MessageTypeToText.TEMPLATE_LITERAL_MUST_END_WITH_STYLE}`
+                : variableName.startsWith("get")
+                  ? `${variableName}: ${MessageTypeToText.TEMPLATE_LITERAL_CANNOT_START_WITH_GET}`
+                  : `${variableName}: ${MessageTypeToText.TEMPLATE_LITERAL_CANNOT_START_WITH_CAPITAL_LETTER}`
+              // fix: (fixer) => fixer.replaceText(id, newName)
+            });
+          }
+        }
       }
     })
   },
-  "no-hardcoded-strings": {
+  // To do: use a library instead
+  "default-imports-first": {
     meta: {
       type: "problem",
       docs: {
-        description: "Disallow hardcoded strings (any language) to enforce use of constants or i18n"
+        description: "Enforce default imports before named imports"
       },
-      schema: [
-        {
-          type: "object",
-          properties: {
-            minLength: {
-              type: "number",
-              default: 3
-            },
-            ignorePatterns: {
-              type: "array",
-              items: {
-                type: "string"
-              }
+      fixable: "code",
+      schema: []
+    },
+    create: (context) => ({
+      Program: (node) => {
+        const imports = [];
+        const sourceCode = context.getSourceCode();
+
+        // Collect all import declarations
+        node.body.forEach((statement) => {
+          if (statement.type === "ImportDeclaration") {
+            const isDefaultImport = statement.specifiers.some((spec) => spec.type === "ImportDefaultSpecifier");
+            const isNamedImport = statement.specifiers.some((spec) => spec.type === "ImportSpecifier");
+            const isSideEffectImport = statement.specifiers.length === 0;
+
+            imports.push({
+              node: statement,
+              isDefault: isDefaultImport,
+              isNamed: isNamedImport,
+              isSideEffect: isSideEffectImport,
+              text: sourceCode.getText(statement)
+            });
+          }
+        }); // Check if named imports come before default imports
+
+        const isViolation = imports.some((importInfo, index) => {
+          if (importInfo.isSideEffect) return false; // Skip side-effect imports
+
+          if (importInfo.isNamed) {
+            // Check if there's a default import before this named import
+            const isDefaultBefore = imports.slice(0, index).some((prev) => prev.isDefault && !prev.isSideEffect);
+
+            return isDefaultBefore;
+          }
+
+          return false;
+        });
+
+        if (isViolation) {
+          const firstViolatingImport = imports.find((importInfo, index) => {
+            if (importInfo.isNamed && !importInfo.isSideEffect) {
+              const isDefaultBefore = imports.slice(0, index).some((prev) => prev.isDefault && !prev.isSideEffect);
+
+              return isDefaultBefore;
             }
-          },
-          additionalProperties: false
+
+            return false;
+          });
+
+          context.report({
+            node: firstViolatingImport.node,
+            message: "Named imports should come before default imports",
+            fix: (fixer) => {
+              // Sort the imports: named first, then defaults, then side-effects
+              const namedImports = imports.filter((imp) => imp.isNamed && !imp.isSideEffect);
+              const defaultImports = imports.filter((imp) => imp.isDefault && !imp.isSideEffect);
+              const sideEffectImports = imports.filter((imp) => imp.isSideEffect);
+
+              const sortedImports = [
+                ...namedImports.sort((a, b) => a.text.localeCompare(b.text)),
+                ...defaultImports.sort((a, b) => a.text.localeCompare(b.text)),
+                ...sideEffectImports.sort((a, b) => a.text.localeCompare(b.text))
+              ];
+
+              const fixes = [];
+
+              imports.forEach((importInfo, index) => {
+                if (sortedImports[index]) {
+                  fixes.push(fixer.replaceText(importInfo.node, sortedImports[index].text));
+                }
+              });
+
+              return fixes;
+            }
+          });
         }
-      ]
+      }
+    })
+  },
+
+  // Check if this is a CSS style (css template literal or function returning css)
+  getIsCssStyle: (init) => {
+    if (!init) return false;
+
+    // Direct css template literal
+    if (init.type === "TaggedTemplateExpression" && init.tag?.name === "css") {
+      return true;
+    }
+
+    // Arrow function returning css
+    if (init.type === "ArrowFunctionExpression") {
+      const body =
+        init.body.type === "BlockStatement" ? init.body.body.find((n) => n.type === "ReturnStatement")?.argument : init.body;
+
+      return (
+        body &&
+        ((body.type === "TaggedTemplateExpression" && body.tag?.name === "css") ||
+          (body.type === "CallExpression" && body.callee?.name === "css"))
+      );
+    }
+
+    return false;
+  }, // Helper function to get className value from JSX attribute
+  getClassNameValue: (nodeOrAttr) => {
+    // Handle JSXAttribute node
+    if (nodeOrAttr.type === "JSXAttribute") {
+      if (!nodeOrAttr.value) return null;
+      const attrValue = nodeOrAttr.value;
+
+      // Handle different className value types
+      if (attrValue.type === "Literal") {
+        return null; // Skip string literals, we're looking for CSS-in-JS
+      }
+
+      if (attrValue.type === "JSXExpressionContainer") {
+        const { expression } = attrValue;
+
+        if (expression.type === "Identifier") {
+          return expression.name;
+        }
+
+        if (expression.type === "CallExpression" && expression.callee?.type === "Identifier") {
+          return expression.callee.name;
+        }
+      }
+
+      return null;
+    }
+
+    // Handle the attribute object directly (original behavior)
+    const attrValue = nodeOrAttr.value;
+
+    // Handle different className value types
+    if (attrValue.type === "Literal") {
+      return null; // Skip string literals, we're looking for CSS-in-JS
+    }
+
+    if (attrValue.type === "JSXExpressionContainer") {
+      const { expression } = attrValue;
+
+      if (expression.type === "Identifier") {
+        return expression.name;
+      }
+
+      if (expression.type === "CallExpression" && expression.callee?.type === "Identifier") {
+        return expression.callee.name;
+      }
+    }
+
+    return null;
+  },
+  // Helper function to check if element is outermost
+  getIsOutermostElement: (node) => {
+    const getIsParentValid = (currentNode) => {
+      if (!currentNode.parent) return false;
+
+      const { parent } = currentNode;
+
+      if (parent.type === "JSXElement" || parent.type === "JSXFragment") {
+        return false; // Not the outermost element
+      }
+
+      if (parent.type === "ReturnStatement") {
+        return true; // This is the outermost element in a return
+      }
+
+      return getIsParentValid(parent);
+    };
+
+    return getIsParentValid(node);
+  },
+
+  "container-style-naming": {
+    meta: {
+      type: "problem",
+      fixable: "code",
+      docs: {
+        description: "Enforce 'containerStyle' or 'getContainerStyle' naming for parent/container elements"
+      },
+      schema: []
     },
     create: (context) => {
-      const options = context.options[0] || {};
-      const DEFAULT_MIN_LENGTH = 3;
-      const minLength = options.minLength || DEFAULT_MIN_LENGTH;
-      const ignorePatterns = options.ignorePatterns || [];
+      // Track CSS style variables and their types
+      const cssStyles = new Map();
 
       return {
-        Literal: (node) => {
-          if (getIsShouldIgnore(node.value, minLength, ignorePatterns)) return;
+        VariableDeclarator: (node) => {
+          const { id, init } = node;
+          if (!id || id.type !== "Identifier") return;
 
+          const variableName = id.name;
+
+          if (getIsCssStyle(init)) {
+            const isFunction = init.type === "ArrowFunctionExpression" && init.params.length > 0;
+            cssStyles.set(variableName, { node: id, isFunction });
+          }
+        },
+
+        JSXElement: (node) => {
+          // Check if this is the outermost JSX element
+          if (!getIsOutermostElement(node)) {
+            return; // Not the outermost element
+          }
+
+          // Check if this element has a className attribute
+          const { openingElement } = node;
+
+          const classNameAttr = openingElement.attributes.find(
+            (attr) => attr.type === "JSXAttribute" && attr.name?.name === "className"
+          );
+
+          if (!classNameAttr?.value) return;
+
+          const classNameValue = getClassNameValue(classNameAttr);
+
+          if (!classNameValue || !cssStyles.has(classNameValue)) return;
+
+          const styleInfo = cssStyles.get(classNameValue);
+          const expectedName = styleInfo.isFunction ? "getContainerStyle" : "containerStyle";
+
+          // Check if it's using the correct container naming
+          if (classNameValue !== expectedName) {
+            context.report({
+              node: styleInfo.node,
+              message: `${classNameValue}: ${MessageTypeToText.CONTAINER_STYLE_NAMING}`,
+              fix: (fixer) => fixer.replaceText(styleInfo.node, expectedName)
+            });
+          }
+        }, // Check for misuse of containerStyle/getContainerStyle names on non-container elements
+        JSXAttribute: (node) => {
+          if (node.name?.name !== "className" || !node.value) return;
+
+          const classNameValue = getClassNameValue(node);
+
+          if (!classNameValue || !["containerStyle", "getContainerStyle"].includes(classNameValue)) return;
+
+          // Find the JSX element this attribute belongs to
+          const getFindJSXElement = (currentNode) => {
+            if (currentNode.type === "JSXElement") return currentNode;
+            if (!currentNode.parent) return null;
+            return getFindJSXElement(currentNode.parent);
+          };
+
+          const jsxElement = getFindJSXElement(node);
+          if (!jsxElement) return;
+
+          // Check if this is the outermost JSX element
+          const isOutermost = getIsOutermostElement(jsxElement);
+
+          // If it's not the outermost element, report the violation
+          if (!isOutermost && cssStyles.has(classNameValue)) {
+            context.report({
+              node: node.value.expression.type === "CallExpression" ? node.value.expression.callee : node.value.expression,
+              message: `${classNameValue}: ${MessageTypeToText.CONTAINER_STYLE_RESERVED}`
+            });
+          }
+        }
+      };
+    }
+  },
+  "no-block-event-handlers": {
+    meta: {
+      type: "problem",
+      docs: {
+        description: "Disallow block statements in JSX event handler arrow functions",
+        category: "Stylistic Issues"
+      },
+      fixable: "code",
+      schema: []
+    },
+
+    create: (context) => {
+      const sourceCode = context.getSourceCode();
+
+      const checkArrowFunction = (node) => {
+        // Only check arrow functions with block statements
+        if (node.body.type !== "BlockStatement") return;
+
+        const statements = node.body.body;
+
+        // Always report block statements in JSX event handlers
+        const reportConfig = {
+          node,
+          message: MessageTypeToText.NO_BLOCK_STATEMENTS_IN_EVENT_HANDLERS
+        };
+
+        // Only provide auto-fix for simple cases (single statement that's return/expression)
+        if (statements.length === 1) {
+          const [statement] = statements;
+
+          if (statement.type === "ReturnStatement" || statement.type === "ExpressionStatement") {
+            const expression = statement.type === "ReturnStatement" ? statement.argument : statement.expression;
+
+            if (expression) {
+              reportConfig.fix = (fixer) => {
+                // Convert block statement to expression
+                const expressionText = sourceCode.getText(expression);
+
+                // Replace the entire body with just the expression
+                return fixer.replaceText(node.body, expressionText);
+              };
+            }
+          }
+        }
+
+        context.report(reportConfig);
+      };
+
+      return {
+        // Only check JSX event handlers: <button onClick={(e) => { doSomething(); }} />
+        JSXExpressionContainer: (node) => {
           const { parent } = node;
-          if (parent.type === "Property" && parent.key === node) return;
-          if (parent.type === "JSXAttribute") return;
+          if (parent.type !== "JSXAttribute") return;
 
-          context.report({
-            node,
-            message: MessageTypeToText.NO_HARDCODED_STRINGS
+          const { name } = parent;
+          const attrName = name?.name;
+
+          // Check if this is a JSX event handler (starts with "on" followed by uppercase)
+          if (!attrName || !/^on[A-Z]/.test(attrName)) return;
+
+          const { expression } = node;
+
+          if (expression.type === "ArrowFunctionExpression") {
+            checkArrowFunction(expression);
+          }
+        }
+      };
+    }
+  },
+
+  "css-styles-at-bottom": {
+    meta: {
+      type: "layout",
+      docs: {
+        description: "Ensure that css template literal styles are placed at the bottom of the file",
+        category: "Stylistic Issues"
+      },
+      fixable: "code",
+      schema: []
+    },
+    create: (context) => {
+      const sourceCode = context.getSourceCode();
+      const cssStyleNodes = [];
+      const componentExportNodes = [];
+      const componentDeclarationNodes = [];
+
+      const getComponentStartLine = () => {
+        // First, try to use exported components as reference
+        if (componentExportNodes.length > 0) {
+          const [componentExportNode] = componentExportNodes;
+
+          // If it's a default export, we need to find the actual component declaration
+          if (componentExportNode.type === "ExportDefaultDeclaration") {
+            // For default exports, use component declarations as reference if available
+            return componentDeclarationNodes.length > 0
+              ? componentDeclarationNodes[0].loc.start.line
+              : componentExportNode.loc.start.line;
+          }
+
+          // For named exports, use the export line
+          return componentExportNode.loc.start.line;
+        }
+
+        // If no exports but we have component declarations, use the first one
+        if (componentDeclarationNodes.length > 0) {
+          return componentDeclarationNodes[0].loc.start.line;
+        }
+
+        // No components found
+        return null;
+      };
+
+      return {
+        // Collect all css style variable declarations
+        VariableDeclarator: (node) => {
+          if (!node.id || node.id.type !== "Identifier") return;
+
+          // Check if this is a CSS style (css template literal or function returning css)
+          if (customRuleMap.getIsCssStyle(node.init)) {
+            cssStyleNodes.push(node);
+          }
+        },
+
+        // Collect all potential component declarations (functions/arrow functions that might be React components)
+        VariableDeclaration: (node) => {
+          node.declarations.forEach((declarator) => {
+            if (
+              declarator.id &&
+              declarator.id.type === "Identifier" &&
+              (declarator.init?.type === "ArrowFunctionExpression" || declarator.init?.type === "FunctionExpression") && // Check if the name looks like a component (starts with capital letter)
+              declarator.id.name[0] === declarator.id.name[0].toUpperCase()
+            ) {
+              componentDeclarationNodes.push(node);
+            }
           });
         },
-        TemplateLiteral: (node) => {
-          const isExpressions = node.expressions.length > 0;
-          const value = node.quasis.map((q) => q.value.raw).join("");
 
-          if (getIsShouldIgnore(value, minLength, ignorePatterns) && !isExpressions) return;
+        FunctionDeclaration: (node) => {
+          // Check if the function name looks like a component (starts with capital letter)
+          if (node.id && node.id.name[0] === node.id.name[0].toUpperCase()) {
+            componentDeclarationNodes.push(node);
+          }
+        },
 
-          context.report({
-            node,
-            message: MessageTypeToText.NO_HARDCODED_STRINGS
+        // Find the main component export (named exports)
+        ExportNamedDeclaration: (node) => {
+          if (
+            node.declaration &&
+            (node.declaration.type === "FunctionDeclaration" || node.declaration.type === "VariableDeclaration")
+          ) {
+            componentExportNodes.push(node);
+          }
+        },
+
+        // Find default exports
+        ExportDefaultDeclaration: (node) => {
+          componentExportNodes.push(node);
+        },
+        "Program:exit": () => {
+          if (cssStyleNodes.length === 0) return;
+
+          const componentStartLine = getComponentStartLine();
+
+          // No components found, don't enforce the rule
+          if (componentStartLine === null) return;
+
+          const violatingStyles = cssStyleNodes.filter((cssNode) => cssNode.loc.start.line < componentStartLine);
+
+          if (violatingStyles.length === 0) return;
+
+          // Report violations
+          violatingStyles.forEach((cssNode) => {
+            context.report({
+              node: cssNode,
+              message: "CSS styles should be placed at the bottom of the file, after the component",
+              fix: (fixer) => {
+                // Get the parent variable declaration
+                const parentDeclaration = cssNode.parent;
+                if (parentDeclaration.type !== "VariableDeclaration") return null;
+
+                const fixes = [];
+
+                // Remove the style from its current position
+                fixes.push(fixer.remove(parentDeclaration));
+
+                // Find the appropriate insertion point
+                const insertionTarget = componentExportNodes.length > 0 ? componentExportNodes[0] : componentDeclarationNodes[0];
+                // Add it after the component
+                const styleText = sourceCode.getText(parentDeclaration);
+                fixes.push(fixer.insertTextAfter(insertionTarget, `\n\n${styleText}`));
+                return fixes;
+              }
+            });
           });
         }
       };
     }
+  },
+  "blank-line-after-setters": {
+    meta: {
+      type: "layout",
+      fixable: "whitespace",
+      docs: {
+        description: "Enforce blank line before multi-line return statements and function calls after setters"
+      },
+      schema: []
+    },
+    create: (context) => {
+      const sourceCode = context.getSourceCode();
+
+      return {
+        ReturnStatement: (node) => {
+          // Only check multi-line return statements
+          if (!getIsMultiLineReturn(node)) return;
+
+          // Check if there's already a blank line before
+          if (getIsBlankLineBefore(sourceCode, node)) return;
+
+          // Get the previous sibling to check if it's not another return or block statement
+          const { parent } = node;
+          if (!parent || parent.type !== "BlockStatement") return;
+
+          const statements = parent.body;
+          const currentIndex = statements.indexOf(node);
+
+          // If it's the first statement in the block, no blank line needed
+          if (currentIndex === 0) return;
+
+          const previousStatement = statements[currentIndex - 1];
+          // Don't require blank line after certain statements that naturally flow into return
+          const noBlankLineAfter = ["ReturnStatement", "ThrowStatement", "BreakStatement", "ContinueStatement"];
+
+          if (noBlankLineAfter.includes(previousStatement.type)) return;
+
+          context.report({
+            node,
+            message: MessageTypeToText.BLANK_LINE_BEFORE_MULTILINE_RETURN,
+            fix: (fixer) => fixer.insertTextBefore(node, "\n")
+          });
+        },
+        ExpressionStatement: (node) => {
+          // Check if this is a function call that requires spacing
+          if (!getIsSpacingRequiredFunctionCall(node)) return;
+
+          // Check if there's already a blank line before
+          if (getIsBlankLineBefore(sourceCode, node)) return;
+
+          // Get the parent block and current statement index
+          const { parent } = node;
+          if (!parent || parent.type !== "BlockStatement") return;
+
+          const statements = parent.body;
+          const currentIndex = statements.indexOf(node);
+
+          // If it's the first statement in the block, no blank line needed
+          if (currentIndex === 0) return;
+
+          const previousStatement = statements[currentIndex - 1];
+
+          // Only require blank line if the previous statement is a setter call
+          if (!getIsSetterCall(previousStatement)) return;
+
+          // Get the function name to provide more specific feedback
+          const { expression } = node;
+          const functionName = expression.callee && expression.callee.name ? expression.callee.name : "function call";
+
+          context.report({
+            node,
+            message: `Expected blank line before ${functionName}() following setter statements.`,
+            fix: (fixer) => fixer.insertTextBefore(node, "\n")
+          });
+        }
+      };
+    }
+  },
+  "prefer-direct-function-reference": {
+    meta: {
+      type: "problem",
+      docs: {
+        description: "Prefer direct function references over arrow functions in JSX event handlers when no arguments are passed",
+        category: "Best Practices"
+      },
+      fixable: "code",
+      schema: []
+    },
+    create: (context) => ({
+      JSXExpressionContainer: (node) => {
+        const { parent } = node;
+        if (parent.type !== "JSXAttribute") return;
+
+        const { name } = parent;
+        const attrName = name?.name;
+
+        // Check if this is a JSX event handler (starts with "on" followed by uppercase)
+        if (!attrName || !/^on[A-Z]/.test(attrName)) return;
+
+        const { expression } = node;
+
+        // Check if it's an arrow function
+        if (expression.type !== "ArrowFunctionExpression") return;
+
+        // Check if the arrow function has no parameters
+        if (expression.params.length > 0) return;
+
+        // Check if the body is a single function call without arguments
+        const functionCall = (() => {
+          if (expression.body.type === "CallExpression") {
+            return expression.body;
+          }
+
+          if (
+            expression.body.type === "BlockStatement" &&
+            expression.body.body.length === 1 &&
+            expression.body.body[0].type === "ExpressionStatement" &&
+            expression.body.body[0].expression.type === "CallExpression"
+          ) {
+            return expression.body.body[0].expression;
+          }
+
+          return null;
+        })();
+
+        if (!functionCall) return;
+
+        // Check if the function call has no arguments
+        if (functionCall.arguments.length > 0) return;
+
+        // Check if the function being called is a simple identifier (not a member expression)
+        if (functionCall.callee.type !== "Identifier") return;
+
+        const functionName = functionCall.callee.name;
+
+        context.report({
+          node: expression,
+          message: MessageTypeToText.PREFER_DIRECT_FUNCTION_REFERENCE,
+          fix: (fixer) =>
+            // Replace the entire arrow function with just the function name
+            fixer.replaceText(expression, functionName)
+        });
+      }
+    })
+  },
+  "no-inline-styles": {
+    meta: {
+      type: "problem",
+      docs: {
+        description: "Disallow inline style prop on all JSX elements"
+      },
+      schema: []
+    },
+    create: (context) => ({
+      JSXAttribute: (node) => {
+        if (node.name.name === "style") {
+          context.report({
+            node,
+            message: MessageTypeToText.NO_INLINE_STYLES
+          });
+        }
+      }
+    })
   },
   "prefer-get-prefix": {
     meta: {
@@ -347,8 +1088,57 @@ export const customRuleMap = {
         if (functionNode.async) return;
 
         // Check if function has a return statement (including nested scopes)
+        const getIsHasReturnStatement = (body) => {
+          if (!body) return false;
 
-        if (getIsReturn(functionNode)) {
+          if (body.type === "BlockStatement") {
+            if (!Array.isArray(body.body)) return false;
+
+            return body.body.some((statement) => {
+              if (statement.type === "ReturnStatement" && statement.argument) return true;
+
+              if (statement.type === "IfStatement") {
+                const consequentCheck = getIsHasReturnStatement(statement.consequent);
+                const alternateCheck = statement.alternate ? getIsHasReturnStatement(statement.alternate) : false;
+                return consequentCheck || alternateCheck;
+              }
+
+              if (statement.type === "TryStatement") {
+                const blockCheck = getIsHasReturnStatement(statement.block);
+                const handlerCheck = statement.handler ? getIsHasReturnStatement(statement.handler.body) : false;
+                const finalizerCheck = statement.finalizer ? getIsHasReturnStatement(statement.finalizer) : false;
+                return blockCheck || handlerCheck || finalizerCheck;
+              }
+
+              if (statement.type === "BlockStatement") {
+                return getIsHasReturnStatement(statement);
+              }
+
+              return false;
+            });
+          }
+
+          return false;
+        };
+
+        const getIsReturn = () => {
+          if (functionNode.type === "ArrowFunctionExpression") {
+            // Only check arrow functions with explicit block and return statements
+            if (functionNode.body.type === "BlockStatement") {
+              return getIsHasReturnStatement(functionNode.body);
+            }
+            // Skip implicit returns - can't reliably determine if void without types
+            return false;
+          }
+
+          if (functionNode.type === "FunctionExpression" || functionNode.type === "FunctionDeclaration") {
+            return getIsHasReturnStatement(functionNode.body);
+          }
+
+          return false;
+        };
+
+        if (getIsReturn()) {
           context.report({
             node: reportNode,
             message: MessageTypeToText.FUNCTION_MUST_START_WITH_GET_PREFIX
@@ -380,12 +1170,148 @@ export const customRuleMap = {
           // Skip ESLint API properties
           if (functionName === "create" || functionName === "fix") return;
 
-          // Skip schema/config object properties
+          // Skip schema/config object properties (like Mongoose schema methods)
           if (getIsSchemaOrConfigProperty(node)) return;
 
           if (node.value.type === "ArrowFunctionExpression" || node.value.type === "FunctionExpression") {
             checkFunctionForReturn(node.value, functionName, node.key);
           }
+        }
+      };
+    }
+  },
+  "no-inline-exports": {
+    meta: {
+      type: "suggestion",
+      docs: {
+        description: "Disallow inline exports - require export keyword before declaration"
+      },
+      schema: []
+    },
+    create: (context) => ({
+      ExportNamedDeclaration: (node) => {
+        // Check for inline exports: export { foo, bar };
+        if (node.specifiers && node.specifiers.length > 0 && !node.declaration) {
+          context.report({
+            node,
+            message: MessageTypeToText.NO_INLINE_EXPORTS
+          });
+        }
+      }
+    })
+  },
+  "require-object-destructuring": {
+    meta: {
+      type: "suggestion",
+      docs: {
+        description: "Functions with 2 or more parameters must use object destructuring"
+      },
+      schema: []
+    },
+    create: (context) => {
+      const checkFunction = (node) => {
+        const { params, parent, id } = node;
+
+        // Skip if less than 2 parameters
+        if (params.length < 2) return;
+
+        // Skip if function is a callback (not exported, not a component)
+        const { type: parentType } = parent;
+        const grandParent = parent.parent;
+
+        const isExported =
+          parentType === "ExportNamedDeclaration" ||
+          (parentType === "VariableDeclarator" && grandParent?.parent?.type === "ExportNamedDeclaration");
+
+        const isComponent = id && /^[A-Z]/.test(id.name);
+        // Skip Next.js route handlers (GET, POST, PUT, DELETE, PATCH) - framework-mandated signature
+        const isNextJsRouteHandler =
+          parentType === "VariableDeclarator" && parent.id?.name && /^(GET|POST|PUT|DELETE|PATCH)$/.test(parent.id.name);
+
+        // Only enforce for exported functions or components
+        if (!isExported && !isComponent) return;
+        if (isNextJsRouteHandler) return;
+
+        // Check if all parameters are using object pattern (destructuring)
+        const isNonObjectParams = params.some(({ type: paramType }) => paramType !== "ObjectPattern");
+
+        if (isNonObjectParams) {
+          context.report({
+            node,
+            message: MessageTypeToText.REQUIRE_OBJECT_DESTRUCTURING
+          });
+        }
+      };
+
+      return {
+        ArrowFunctionExpression: checkFunction,
+        FunctionDeclaration: checkFunction,
+        FunctionExpression: checkFunction
+      };
+    }
+  },
+  "no-hardcoded-strings": {
+    meta: {
+      type: "problem",
+      docs: {
+        description: "Disallow hardcoded strings (any language) to enforce use of constants or i18n"
+      },
+      schema: [
+        {
+          type: "object",
+          properties: {
+            minLength: {
+              type: "number",
+              default: 3
+            },
+            ignorePatterns: {
+              type: "array",
+              items: {
+                type: "string"
+              }
+            }
+          },
+          additionalProperties: false
+        }
+      ]
+    },
+    create: (context) => {
+      const options = context.options[0] || {};
+      const minLength = options.minLength || 3;
+      const ignorePatterns = options.ignorePatterns || [];
+
+      const getIsShouldIgnore = (value) => {
+        if (typeof value !== "string") return true;
+        if (value.length < minLength) return true;
+
+        if (value.trim().length === 0) return true;
+
+        return ignorePatterns.some((pattern) => new RegExp(pattern).test(value));
+      };
+
+      return {
+        Literal: (node) => {
+          if (getIsShouldIgnore(node.value)) return;
+
+          const { parent } = node;
+          if (parent.type === "Property" && parent.key === node) return;
+          if (parent.type === "JSXAttribute") return;
+
+          context.report({
+            node,
+            message: MessageTypeToText.NO_HARDCODED_STRINGS
+          });
+        },
+        TemplateLiteral: (node) => {
+          const isExpressions = node.expressions.length > 0;
+          const value = node.quasis.map((q) => q.value.raw).join("");
+
+          if (getIsShouldIgnore(value) && !isExpressions) return;
+
+          context.report({
+            node,
+            message: MessageTypeToText.NO_HARDCODED_STRINGS
+          });
         }
       };
     }
@@ -458,10 +1384,69 @@ export const customRuleMap = {
     },
     create: (context) => {
       const checkFunctionForVoid = (functionNode, functionName, reportNode) => {
+        // Only check if it starts with "get"
         if (!functionName.startsWith("get")) return;
+
+        // Skip if it's a component (starts with capital letter after "get")
         if (/^get[A-Z]/.test(functionName) && /^get[A-Z][a-z]*[A-Z]/.test(functionName)) return;
 
-        if (getIsVoidFunction(functionNode)) {
+        // Check if function has NO return statement or only returns undefined/void
+        const getIsHasNonVoidReturn = (body) => {
+          if (!body) return false;
+
+          if (body.type === "BlockStatement") {
+            if (!Array.isArray(body.body)) return false;
+
+            return body.body.some((statement) => {
+              // Check for return statements with actual values
+              if (statement.type === "ReturnStatement") {
+                // return; or return undefined; are considered void
+                if (!statement.argument) return false;
+                if (statement.argument.type === "Identifier" && statement.argument.name === "undefined") return false;
+                return true; // Has a real return value
+              }
+
+              // Check nested structures
+              if (statement.type === "IfStatement") {
+                const consequentCheck = getIsHasNonVoidReturn(statement.consequent);
+                const alternateCheck = statement.alternate ? getIsHasNonVoidReturn(statement.alternate) : false;
+                return consequentCheck || alternateCheck;
+              }
+
+              if (statement.type === "TryStatement") {
+                const blockCheck = getIsHasNonVoidReturn(statement.block);
+                const handlerCheck = statement.handler ? getIsHasNonVoidReturn(statement.handler.body) : false;
+                const finalizerCheck = statement.finalizer ? getIsHasNonVoidReturn(statement.finalizer) : false;
+                return blockCheck || handlerCheck || finalizerCheck;
+              }
+
+              if (statement.type === "BlockStatement") {
+                return getIsHasNonVoidReturn(statement);
+              }
+
+              return false;
+            });
+          }
+
+          return false;
+        };
+
+        const getIsVoidFunction = () => {
+          if (functionNode.type === "ArrowFunctionExpression") {
+            // Arrow functions without block are implicit returns (not void)
+            if (functionNode.body.type !== "BlockStatement") return false;
+            // Check if it has no return or only void returns
+            return !getIsHasNonVoidReturn(functionNode.body);
+          }
+
+          if (functionNode.type === "FunctionExpression" || functionNode.type === "FunctionDeclaration") {
+            return !getIsHasNonVoidReturn(functionNode.body);
+          }
+
+          return false;
+        };
+
+        if (getIsVoidFunction()) {
           context.report({
             node: reportNode,
             message: MessageTypeToText.NO_GET_PREFIX_FOR_VOID_FUNCTIONS
@@ -491,12 +1476,51 @@ export const customRuleMap = {
           // Skip ESLint API properties
           if (functionName === "create" || functionName === "fix") return;
 
-          // Skip schema/config object properties
+          // Skip schema/config object properties (like Mongoose schema methods)
           if (getIsSchemaOrConfigProperty(node)) return;
 
           if (node.value.type === "ArrowFunctionExpression" || node.value.type === "FunctionExpression") {
             checkFunctionForVoid(node.value, functionName, node.key);
           }
+        }
+      };
+    }
+  },
+  "blank-line-before-multiline-return": {
+    meta: {
+      type: "layout",
+      fixable: "whitespace",
+      docs: {
+        description: "Enforce blank line before multi-line return statements"
+      },
+      schema: []
+    },
+    create: (context) => {
+      const sourceCode = context.getSourceCode();
+
+      return {
+        ReturnStatement: (node) => {
+          if (!getIsMultiLine(node)) return;
+          if (getIsBlankLineBefore(sourceCode, node)) return;
+
+          const { parent } = node;
+          if (!parent || parent.type !== "BlockStatement") return;
+
+          const statements = parent.body;
+          const currentIndex = statements.indexOf(node);
+
+          if (currentIndex === 0) return;
+
+          const previousStatement = statements[currentIndex - 1];
+          const noBlankLineAfter = ["ReturnStatement", "ThrowStatement", "BreakStatement", "ContinueStatement"];
+
+          if (noBlankLineAfter.includes(previousStatement.type)) return;
+
+          context.report({
+            node,
+            message: MessageTypeToText.BLANK_LINE_BEFORE_MULTILINE_RETURN,
+            fix: (fixer) => fixer.insertTextBefore(node, "\n")
+          });
         }
       };
     }

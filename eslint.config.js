@@ -1,9 +1,9 @@
-import js from "@eslint/js";
+import { customRuleMap } from "./custom-eslint-rules.js";
 import boundaries from "eslint-plugin-boundaries";
+import js from "@eslint/js";
+import preferArrow from "eslint-plugin-prefer-arrow";
 import unicorn from "eslint-plugin-unicorn";
 import unusedImports from "eslint-plugin-unused-imports";
-import preferArrow from "eslint-plugin-prefer-arrow";
-import { customRuleMap } from "./custom-eslint-rules.js";
 
 const eslintConfig = [
   js.configs.recommended,
@@ -57,8 +57,9 @@ const eslintConfig = [
           }
         }
       ],
+      // To do: enable and refactor
       "no-magic-numbers": [
-        "error",
+        "off",
         {
           ignore: [0, 1, -1],
           ignoreDefaultValues: true,
@@ -72,6 +73,13 @@ const eslintConfig = [
       "custom/prefer-boolean-is-prefix": "error",
       "custom/no-get-prefix-for-void": "error",
       "prefer-const": "error",
+      "custom/no-inline-exports": "error",
+      "custom/require-object-destructuring": "error",
+      "custom/default-imports-first": "error",
+      "custom/no-block-event-handlers": "error",
+      "custom/prefer-direct-function-reference": "error",
+      "custom/padding-around-multiline-statements": "error",
+      "custom/blank-line-after-setters": "error",
       "no-var": "error",
       "prefer-arrow/prefer-arrow-functions": "error",
       "unicorn/no-negation-in-equality-check": "error",
