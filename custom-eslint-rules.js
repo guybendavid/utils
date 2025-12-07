@@ -2,8 +2,8 @@ const getIsMultiLine = (node) => node.loc.end.line > node.loc.start.line;
 /**
  * Configure which schema libraries to skip in 'get' prefix rules
  * @param {Object} options - Configuration options
- * @param {Array<string>} options.schemaLibraries - Library names (e.g., ['mongoose'])
- * @param {Array<string>} options.schemaMethods - Method names (e.g., ['Schema'])
+ * @param {Array<string>} options.schemaLibraries - Library names
+ * @param {Array<string>} options.schemaMethods - Method names
  * @returns {Function} Schema detection function
  */
 const getSchemaDetector = (options = {}) => {
@@ -263,6 +263,56 @@ const getIsSpacingRequiredFunctionCall = (node) => {
   return false;
 };
 
+const getIsReturnPresent = (body) => {
+  if (!body) return false;
+
+  if (body.type === "BlockStatement") {
+    if (!Array.isArray(body.body)) return false;
+
+    return body.body.some((statement) => {
+      if (statement.type === "ReturnStatement" && statement.argument) return true;
+
+      if (statement.type === "IfStatement") {
+        const consequentCheck = getIsReturnPresent(statement.consequent);
+        const alternateCheck = statement.alternate ? getIsReturnPresent(statement.alternate) : false;
+        return consequentCheck || alternateCheck;
+      }
+
+      if (statement.type === "TryStatement") {
+        const blockCheck = getIsReturnPresent(statement.block);
+        const handlerCheck = statement.handler ? getIsReturnPresent(statement.handler.body) : false;
+        const finalizerCheck = statement.finalizer ? getIsReturnPresent(statement.finalizer) : false;
+        return blockCheck || handlerCheck || finalizerCheck;
+      }
+
+      if (statement.type === "BlockStatement") {
+        return getIsReturnPresent(statement);
+      }
+
+      return false;
+    });
+  }
+
+  return false;
+};
+
+const getIsReturn = (functionNode) => {
+  if (functionNode.type === "ArrowFunctionExpression") {
+    // Only check arrow functions with explicit block and return statements
+    if (functionNode.body.type === "BlockStatement") {
+      return getIsReturnPresent(functionNode.body);
+    }
+
+    // Skip implicit returns - can't reliably determine if void without types
+    return false;
+  }
+
+  if (functionNode.type === "FunctionExpression" || functionNode.type === "FunctionDeclaration") {
+    return getIsReturnPresent(functionNode.body);
+  }
+
+  return false;
+};
 const MessageTypeToText = {
   FUNCTION_WITHOUT_PARAMETERS: "CSS styling functions without parameters should be converted to regular css variables.",
   FUNCTION_MUST_END_WITH_STYLE: "CSS styling functions must end with 'Style'.",
@@ -1087,58 +1137,8 @@ export const customRuleMap = {
         // Skip async functions - they return Promises, can't determine resolved type
         if (functionNode.async) return;
 
-        // Check if function has a return statement (including nested scopes)
-        const getIsHasReturnStatement = (body) => {
-          if (!body) return false;
-
-          if (body.type === "BlockStatement") {
-            if (!Array.isArray(body.body)) return false;
-
-            return body.body.some((statement) => {
-              if (statement.type === "ReturnStatement" && statement.argument) return true;
-
-              if (statement.type === "IfStatement") {
-                const consequentCheck = getIsHasReturnStatement(statement.consequent);
-                const alternateCheck = statement.alternate ? getIsHasReturnStatement(statement.alternate) : false;
-                return consequentCheck || alternateCheck;
-              }
-
-              if (statement.type === "TryStatement") {
-                const blockCheck = getIsHasReturnStatement(statement.block);
-                const handlerCheck = statement.handler ? getIsHasReturnStatement(statement.handler.body) : false;
-                const finalizerCheck = statement.finalizer ? getIsHasReturnStatement(statement.finalizer) : false;
-                return blockCheck || handlerCheck || finalizerCheck;
-              }
-
-              if (statement.type === "BlockStatement") {
-                return getIsHasReturnStatement(statement);
-              }
-
-              return false;
-            });
-          }
-
-          return false;
-        };
-
-        const getIsReturn = () => {
-          if (functionNode.type === "ArrowFunctionExpression") {
-            // Only check arrow functions with explicit block and return statements
-            if (functionNode.body.type === "BlockStatement") {
-              return getIsHasReturnStatement(functionNode.body);
-            }
-            // Skip implicit returns - can't reliably determine if void without types
-            return false;
-          }
-
-          if (functionNode.type === "FunctionExpression" || functionNode.type === "FunctionDeclaration") {
-            return getIsHasReturnStatement(functionNode.body);
-          }
-
-          return false;
-        };
-
-        if (getIsReturn()) {
+        if (getIsReturn(functionNode)) {
+          // Check if function has a return statement (including nested scopes)
           context.report({
             node: reportNode,
             message: MessageTypeToText.FUNCTION_MUST_START_WITH_GET_PREFIX
@@ -1170,7 +1170,7 @@ export const customRuleMap = {
           // Skip ESLint API properties
           if (functionName === "create" || functionName === "fix") return;
 
-          // Skip schema/config object properties (like Mongoose schema methods)
+          // Skip schema/config object properties
           if (getIsSchemaOrConfigProperty(node)) return;
 
           if (node.value.type === "ArrowFunctionExpression" || node.value.type === "FunctionExpression") {
@@ -1476,7 +1476,7 @@ export const customRuleMap = {
           // Skip ESLint API properties
           if (functionName === "create" || functionName === "fix") return;
 
-          // Skip schema/config object properties (like Mongoose schema methods)
+          // Skip schema/config object properties
           if (getIsSchemaOrConfigProperty(node)) return;
 
           if (node.value.type === "ArrowFunctionExpression" || node.value.type === "FunctionExpression") {
