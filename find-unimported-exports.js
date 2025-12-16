@@ -23,7 +23,17 @@ const analyzeExports = async ({ file }) => {
       const { line } = loc.start;
 
       declarations?.forEach(({ id }) => {
-        exports[id.name] = { file, isUsed: false, line };
+        // Handle destructured exports: export const { User, Message } = models;
+        if (id.type === "ObjectPattern") {
+          id.properties?.forEach((prop) => {
+            if (prop.type === "ObjectProperty" && prop.key?.name) {
+              exports[prop.key.name] = { file, isUsed: false, line };
+            }
+          });
+        } else if (id.name) {
+          // Handle regular exports: export const User = ...;
+          exports[id.name] = { file, isUsed: false, line };
+        }
       });
     }
   });
