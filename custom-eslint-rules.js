@@ -326,7 +326,6 @@ const MessageTypeToText = {
   BLANK_LINE_BEFORE_FUNCTION_CALL: "Expected blank line before function call following setter statements.",
   NO_BLOCK_STATEMENTS_IN_EVENT_HANDLERS: "Block statements are not allowed in JSX event handler arrow functions.",
   PREFER_DIRECT_FUNCTION_REFERENCE: "Use direct function reference instead of arrow function when no arguments are passed.",
-  NO_INLINE_STYLES: "Inline 'style' prop is forbidden. Use Emotion CSS (@emotion/css) instead.",
   FUNCTION_MUST_START_WITH_GET_PREFIX: "Functions that return values should start with 'get' prefix.",
   NO_INLINE_EXPORTS: "Use export keyword before the variable/function declaration instead of inline exports.",
   REQUIRE_OBJECT_DESTRUCTURING: "Functions with 2 or more parameters must use object destructuring.",
@@ -1093,25 +1092,6 @@ export const customRuleMap = {
             // Replace the entire arrow function with just the function name
             fixer.replaceText(expression, functionName)
         });
-      }
-    })
-  },
-  "no-inline-styles": {
-    meta: {
-      type: "problem",
-      docs: {
-        description: "Disallow inline style prop on all JSX elements"
-      },
-      schema: []
-    },
-    create: (context) => ({
-      JSXAttribute: (node) => {
-        if (node.name.name === "style") {
-          context.report({
-            node,
-            message: MessageTypeToText.NO_INLINE_STYLES
-          });
-        }
       }
     })
   },

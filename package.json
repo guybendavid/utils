@@ -1,12 +1,9 @@
 {
   "name": "@guybendavid/utils",
   "version": "3.0.0",
-  "type": "module",
   "author": "Guy Ben David",
   "license": "BSD-3-Clause",
-  "engines": {
-    "node": ">=22.0.0"
-  },
+  "type": "module",
   "description": "General utilities",
   "keywords": [
     "utils",
@@ -15,12 +12,15 @@
   "main": "index.js",
   "bin": "index.js",
   "types": "index.d.ts",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
     "test": "node --test tests/*.test.js",
     "lint": "eslint . && node find-unimported-exports.js && knip",
     "lint:eslint-fix": "eslint . --fix",
     "format": "prettier --write .",
-    "validate": "npm run lint && npm run format",
+    "validate": "npm run lint && npm run test && npx prettier --check .",
     "prepare": "husky"
   },
   "devDependencies": {
@@ -33,6 +33,7 @@
     "eslint-plugin-unused-imports": "^4.1.4",
     "glob": "^13.0.0",
     "husky": "^9.1.7",
+    "globals": "16.5.0",
     "knip": "^5.70.1",
     "prettier": "^3.4.2",
     "pretty-quick": "^4.0.0"
