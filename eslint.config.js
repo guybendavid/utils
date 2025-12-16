@@ -1,5 +1,4 @@
 import { customRuleMap } from "./custom-eslint-rules.js";
-import boundaries from "eslint-plugin-boundaries";
 import js from "@eslint/js";
 import preferArrow from "eslint-plugin-prefer-arrow";
 import unicorn from "eslint-plugin-unicorn";
@@ -9,7 +8,6 @@ const eslintConfig = [
   js.configs.recommended,
   {
     plugins: {
-      boundaries,
       "unused-imports": unusedImports,
       unicorn,
       "prefer-arrow": preferArrow,
@@ -17,16 +15,7 @@ const eslintConfig = [
         rules: customRuleMap
       }
     },
-    settings: {
-      "boundaries/elements": [
-        {
-          type: "utils",
-          pattern: "*.js",
-          mode: "file"
-        }
-      ],
-      "boundaries/ignore": ["node_modules/**/*", "**/*.test.js", "**/*.spec.js"]
-    },
+    settings: {},
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
@@ -36,19 +25,6 @@ const eslintConfig = [
       }
     },
     rules: {
-      "boundaries/element-types": [
-        "error",
-        {
-          default: "disallow",
-          message: "${file.type} is not allowed to import ${dependency.type}",
-          rules: [
-            {
-              from: ["utils"],
-              allow: ["utils"]
-            }
-          ]
-        }
-      ],
       "unicorn/filename-case": [
         "error",
         {

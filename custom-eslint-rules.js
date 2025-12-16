@@ -1391,7 +1391,7 @@ export const customRuleMap = {
         if (/^get[A-Z]/.test(functionName) && /^get[A-Z][a-z]*[A-Z]/.test(functionName)) return;
 
         // Check if function has NO return statement or only returns undefined/void
-        const getIsHasNonVoidReturn = (body) => {
+        const getIsNonVoidReturn = (body) => {
           if (!body) return false;
 
           if (body.type === "BlockStatement") {
@@ -1408,20 +1408,20 @@ export const customRuleMap = {
 
               // Check nested structures
               if (statement.type === "IfStatement") {
-                const consequentCheck = getIsHasNonVoidReturn(statement.consequent);
-                const alternateCheck = statement.alternate ? getIsHasNonVoidReturn(statement.alternate) : false;
+                const consequentCheck = getIsNonVoidReturn(statement.consequent);
+                const alternateCheck = statement.alternate ? getIsNonVoidReturn(statement.alternate) : false;
                 return consequentCheck || alternateCheck;
               }
 
               if (statement.type === "TryStatement") {
-                const blockCheck = getIsHasNonVoidReturn(statement.block);
-                const handlerCheck = statement.handler ? getIsHasNonVoidReturn(statement.handler.body) : false;
-                const finalizerCheck = statement.finalizer ? getIsHasNonVoidReturn(statement.finalizer) : false;
+                const blockCheck = getIsNonVoidReturn(statement.block);
+                const handlerCheck = statement.handler ? getIsNonVoidReturn(statement.handler.body) : false;
+                const finalizerCheck = statement.finalizer ? getIsNonVoidReturn(statement.finalizer) : false;
                 return blockCheck || handlerCheck || finalizerCheck;
               }
 
               if (statement.type === "BlockStatement") {
-                return getIsHasNonVoidReturn(statement);
+                return getIsNonVoidReturn(statement);
               }
 
               return false;
@@ -1436,11 +1436,11 @@ export const customRuleMap = {
             // Arrow functions without block are implicit returns (not void)
             if (functionNode.body.type !== "BlockStatement") return false;
             // Check if it has no return or only void returns
-            return !getIsHasNonVoidReturn(functionNode.body);
+            return !getIsNonVoidReturn(functionNode.body);
           }
 
           if (functionNode.type === "FunctionExpression" || functionNode.type === "FunctionDeclaration") {
-            return !getIsHasNonVoidReturn(functionNode.body);
+            return !getIsNonVoidReturn(functionNode.body);
           }
 
           return false;
