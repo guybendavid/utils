@@ -30,8 +30,12 @@ const analyzeExports = async ({ file }) => {
               exports[prop.key.name] = { file, isUsed: false, line };
             }
           });
-        } else if (id.name) {
-          // Handle regular exports: export const User = ...;
+
+          return;
+        }
+
+        // Handle regular exports: export const User = ...;
+        if (id.name) {
           exports[id.name] = { file, isUsed: false, line };
         }
       });
