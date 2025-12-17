@@ -1,10 +1,11 @@
+import { baseLanguageOptions } from "./eslint-base.config.js";
 import { customRuleMap } from "./custom-eslint-rules.js";
 import js from "@eslint/js";
 import preferArrow from "eslint-plugin-prefer-arrow";
 import unicorn from "eslint-plugin-unicorn";
 import unusedImports from "eslint-plugin-unused-imports";
 import eslintImport from "eslint-plugin-import";
-import globals from "globals";
+
 
 const eslintConfig = [
   js.configs.recommended,
@@ -15,11 +16,7 @@ const eslintConfig = [
       unicorn,
       "prefer-arrow": preferArrow
     },
-    languageOptions: {
-      ecmaVersion: "latest",
-      sourceType: "module",
-      globals: globals.node
-    },
+    languageOptions: baseLanguageOptions,
     settings: {
       "import/resolver": {
         typescript: {
