@@ -6,7 +6,6 @@ import unicorn from "eslint-plugin-unicorn";
 import unusedImports from "eslint-plugin-unused-imports";
 import eslintImport from "eslint-plugin-import";
 
-
 const eslintConfig = [
   js.configs.recommended,
   {
@@ -86,6 +85,7 @@ const eslintConfig = [
         {
           vars: "all",
           args: "after-used",
+          argsIgnorePattern: "^_",
           destructuredArrayIgnorePattern: "^_",
           ignoreRestSiblings: true
         }
