@@ -1,2 +1,28 @@
+# Dependencies
 node_modules/
+
+# Debug & logs
+*.log*
+
+# Environment variables
+.env
+.env*.local
+
+# Testing
+/coverage
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Claude Code
 .claude/
+
+# OS
+Thumbs.db
