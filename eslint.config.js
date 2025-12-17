@@ -3,6 +3,7 @@ import js from "@eslint/js";
 import preferArrow from "eslint-plugin-prefer-arrow";
 import unicorn from "eslint-plugin-unicorn";
 import unusedImports from "eslint-plugin-unused-imports";
+import eslintImport from "eslint-plugin-import";
 import globals from "globals";
 
 const eslintConfig = [
@@ -10,6 +11,7 @@ const eslintConfig = [
   {
     plugins: {
       "unused-imports": unusedImports,
+      eslintImport,
       unicorn,
       "prefer-arrow": preferArrow
     },
@@ -17,6 +19,13 @@ const eslintConfig = [
       ecmaVersion: "latest",
       sourceType: "module",
       globals: globals.node
+    },
+    settings: {
+      "import/resolver": {
+        node: {
+          paths: ["."]
+        }
+      }
     },
     rules: {
       "no-restricted-imports": [
@@ -149,6 +158,17 @@ const eslintConfig = [
         }
       ],
       "unicorn/prefer-spread": "off",
+      "eslintImport/no-unresolved": "error",
+      "eslintImport/named": "error",
+      "eslintImport/no-default-export": "error",
+      "eslintImport/no-namespace": "error",
+      "eslintImport/newline-after-import": [
+        "error",
+        {
+          count: 1
+        }
+      ],
+      "eslintImport/no-mutable-exports": "error",
       "no-empty": "error",
       "no-debugger": "error",
       "no-throw-literal": "error",
@@ -214,6 +234,12 @@ const eslintConfig = [
           next: "export"
         }
       ]
+    }
+  },
+  {
+    files: ["*.config.js"],
+    rules: {
+      "eslintImport/no-default-export": "off"
     }
   },
   {
