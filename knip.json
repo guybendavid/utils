@@ -1,8 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@latest/schema.json",
   "entry": ["tests/**/*.test.js"],
-  "ignore": [],
-  "ignoreDependencies": [],
   "paths": {
     "custom-eslint-rules": ["custom-eslint-rules.js"]
   },
