@@ -22,8 +22,8 @@ const eslintConfig = [
     },
     settings: {
       "import/resolver": {
-        node: {
-          paths: ["."]
+        typescript: {
+          project: "./jsconfig.json"
         }
       }
     },
