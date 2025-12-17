@@ -16,13 +16,6 @@ const eslintConfig = [
       "prefer-arrow": preferArrow
     },
     languageOptions: baseLanguageOptions,
-    settings: {
-      "import/resolver": {
-        typescript: {
-          project: "./jsconfig.json"
-        }
-      }
-    },
     rules: {
       "no-restricted-imports": [
         "error",
