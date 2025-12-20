@@ -1,5 +1,5 @@
 import { baseLanguageOptions } from "./eslint-base.config.js";
-import { customRuleMap } from "./custom-eslint-rules.js";
+import { customRuleMap } from "./custom-eslint-rules/index.js";
 import js from "@eslint/js";
 import preferArrow from "eslint-plugin-prefer-arrow";
 import unicorn from "eslint-plugin-unicorn";
