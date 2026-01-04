@@ -1,7 +1,7 @@
-import { configs } from "strictify";
+import { getStrictifyConfig } from "strictify";
 
 const eslintConfig = [
-  ...(await configs.getRecommendedConfig()),
+  ...(await getStrictifyConfig()),
   {
     rules: {
       // To do: enable and refactor
