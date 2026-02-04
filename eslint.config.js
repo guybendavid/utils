@@ -2,7 +2,7 @@ import { getStrictifyConfig } from "strictify";
 
 const eslintConfig = [
   ...(await getStrictifyConfig({
-    tsConfigPath: "./jsconfig.json"
+    projectConfigPath: "./jsconfig.json"
   })),
   {
     rules: {
