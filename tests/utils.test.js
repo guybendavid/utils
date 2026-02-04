@@ -1,4 +1,4 @@
-import { getFormattedTime, getFormValidationErrors } from "../index.js";
+import { getFormattedTime, getFormValidationErrors } from "#root/index.js";
 import { test } from "node:test";
 import assert from "node:assert";
 

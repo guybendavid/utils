@@ -16,6 +16,9 @@
       "default": "./index.js"
     }
   },
+  "imports": {
+    "#root/*": "./*"
+  },
   "files": [
     "index.js",
     "index.d.ts",

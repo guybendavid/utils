@@ -1,7 +1,9 @@
 import { getStrictifyConfig } from "strictify";
 
 const eslintConfig = [
-  ...(await getStrictifyConfig()),
+  ...(await getStrictifyConfig({
+    tsConfigPath: "./jsconfig.json"
+  })),
   {
     rules: {
       // To do: enable and refactor
