@@ -30,11 +30,12 @@
   },
   "scripts": {
     "test": "node --test --import tsx tests/**/*.test.*",
-    "lint": "eslint . && npx strictify unimported-exports && knip",
+    "lint": "eslint . && npx strictify unimported-exports && knip && npm run --silent knip:validate-paths",
     "lint:eslint-fix": "eslint . --fix",
     "format": "prettier --write .",
     "validate": "npm run lint && npm run test && npx prettier --check .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "knip:validate-paths": "node node_modules/strictify/scripts/validate-knip-paths.js"
   },
   "devDependencies": {
     "eslint": "^9.17.0",
