@@ -19,6 +19,7 @@
   "imports": {
     "#root/*": "./*"
   },
+  "prettier": "strictify/prettier",
   "files": [
     "index.js",
     "index.d.ts",
